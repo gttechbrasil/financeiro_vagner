@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
   if (q) where.description = { contains: q };
 
   const page = Math.max(1, Number(p.get("page") ?? 1));
-  const [total, items, sum] = await Promise.all([
+  const [total, items, sumIn, sumOut] = await Promise.all([
     prisma.transaction.count({ where }),
     prisma.transaction.findMany({
       where,
@@ -42,14 +42,25 @@ export async function GET(req: NextRequest) {
         bankAccount: { select: { name: true } },
       },
     }),
-    prisma.transaction.aggregate({ where, _sum: { amountCents: true } }),
+    prisma.transaction.aggregate({
+      where: { ...where, amountCents: { gt: 0 } },
+      _sum: { amountCents: true },
+    }),
+    prisma.transaction.aggregate({
+      where: { ...where, amountCents: { lt: 0 } },
+      _sum: { amountCents: true },
+    }),
   ]);
 
+  const inCents = sumIn._sum.amountCents ?? 0;
+  const outCents = sumOut._sum.amountCents ?? 0;
   return NextResponse.json({
     total,
     page,
     pageSize: PAGE_SIZE,
-    sumCents: sum._sum.amountCents ?? 0,
+    inCents,
+    outCents,
+    sumCents: inCents + outCents,
     items,
   });
 }

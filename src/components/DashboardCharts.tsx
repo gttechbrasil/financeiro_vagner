@@ -29,15 +29,19 @@ const fmtShort = (v: number) =>
 export function ReceitaDespesaChart({
   receita,
   despesa,
+  highlightMonth = 0,
 }: {
   receita: number[];
   despesa: number[];
+  /** 0 = sem destaque; 1-12 esmaece os demais meses */
+  highlightMonth?: number;
 }) {
   const data = MONTHS_PT_SHORT.map((m, i) => ({
     mes: m,
     Receita: receita[i],
     Despesas: despesa[i],
   }));
+  const dim = (i: number) => (highlightMonth > 0 && i !== highlightMonth - 1 ? 0.3 : 1);
   return (
     <ResponsiveContainer width="100%" height={280}>
       <BarChart data={data} margin={{ top: 8, right: 8, left: 8, bottom: 0 }} barGap={2}>
@@ -49,8 +53,16 @@ export function ReceitaDespesaChart({
           contentStyle={{ fontSize: 13, borderRadius: 8, border: "1px solid #e1e0d9" }}
         />
         <Legend wrapperStyle={{ fontSize: 13 }} />
-        <Bar dataKey="Receita" fill={C.receita} radius={[4, 4, 0, 0]} maxBarSize={22} />
-        <Bar dataKey="Despesas" fill={C.despesa} radius={[4, 4, 0, 0]} maxBarSize={22} />
+        <Bar dataKey="Receita" fill={C.receita} radius={[4, 4, 0, 0]} maxBarSize={22}>
+          {data.map((_, i) => (
+            <Cell key={i} fill={C.receita} fillOpacity={dim(i)} />
+          ))}
+        </Bar>
+        <Bar dataKey="Despesas" fill={C.despesa} radius={[4, 4, 0, 0]} maxBarSize={22}>
+          {data.map((_, i) => (
+            <Cell key={i} fill={C.despesa} fillOpacity={dim(i)} />
+          ))}
+        </Bar>
       </BarChart>
     </ResponsiveContainer>
   );
