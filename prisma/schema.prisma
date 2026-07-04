@@ -1,0 +1,100 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id           String @id @default(cuid())
+  username     String @unique
+  name         String
+  passwordHash String
+}
+
+// Plano de contas do DRE gerencial.
+// group: RECEITA | DEDUCAO | CUSTO | DESPESA | FINANCEIRO | NAO_OPERACIONAL | PRO_LABORE | DISTRIBUICAO
+model DreAccount {
+  id           String        @id @default(cuid())
+  code         String        @unique
+  name         String
+  group        String
+  sortOrder    Int
+  active       Boolean       @default(true)
+  transactions Transaction[]
+  rules        Rule[]
+}
+
+model Sector {
+  id           String        @id @default(cuid())
+  name         String        @unique
+  transactions Transaction[]
+  rules        Rule[]
+}
+
+model Unit {
+  id           String        @id @default(cuid())
+  name         String        @unique
+  transactions Transaction[]
+  rules        Rule[]
+}
+
+// kind: ASAAS | CONTA_CORRENTE | CARTAO_CREDITO
+model BankAccount {
+  id           String        @id @default(cuid())
+  name         String        @unique
+  kind         String        @default("CONTA_CORRENTE")
+  active       Boolean       @default(true)
+  transactions Transaction[]
+}
+
+model ImportBatch {
+  id           String        @id @default(cuid())
+  fileName     String
+  source       String
+  createdAt    DateTime      @default(now())
+  transactions Transaction[]
+}
+
+model Transaction {
+  id            String       @id @default(cuid())
+  date          DateTime
+  description   String
+  // valor em centavos, com sinal: crédito positivo, débito negativo
+  amountCents   Int
+  bankAccount   BankAccount  @relation(fields: [bankAccountId], references: [id])
+  bankAccountId String
+  account       DreAccount?  @relation(fields: [accountId], references: [id])
+  accountId     String?
+  sector        Sector?      @relation(fields: [sectorId], references: [id])
+  sectorId      String?
+  unit          Unit?        @relation(fields: [unitId], references: [id])
+  unitId        String?
+  importBatch   ImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: Cascade)
+  importBatchId String?
+  externalId    String?
+  hash          String       @unique
+  notes         String?
+  createdAt     DateTime     @default(now())
+
+  @@index([date])
+  @@index([accountId])
+  @@index([bankAccountId])
+}
+
+// Regra de classificação automática: se a descrição contém `pattern`
+// (sem diferenciar maiúsculas), aplica conta/setor/unidade.
+model Rule {
+  id        String      @id @default(cuid())
+  pattern   String
+  account   DreAccount  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  accountId String
+  sector    Sector?     @relation(fields: [sectorId], references: [id])
+  sectorId  String?
+  unit      Unit?       @relation(fields: [unitId], references: [id])
+  unitId    String?
+  priority  Int         @default(0)
+  active    Boolean     @default(true)
+}
