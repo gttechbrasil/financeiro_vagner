@@ -77,6 +77,12 @@ model Transaction {
   externalId    String?
   hash          String       @unique
   notes         String?
+  // despesa fixa mensal: entra na previsão dos meses futuros do DRE
+  recurring     Boolean      @default(false)
+  // compra parcelada: parcela atual e total (ex.: 6 de 10) — as parcelas
+  // restantes são projetadas nos meses futuros do DRE
+  installmentNum   Int?
+  installmentTotal Int?
   createdAt     DateTime     @default(now())
 
   @@index([date])

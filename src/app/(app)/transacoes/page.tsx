@@ -18,6 +18,9 @@ interface Tx {
   accountId: string | null;
   sectorId: string | null;
   unitId: string | null;
+  recurring: boolean;
+  installmentNum: number | null;
+  installmentTotal: number | null;
   account: { code: string; name: string } | null;
   sector: { name: string } | null;
   unit: { name: string } | null;
@@ -66,7 +69,7 @@ export default function TransacoesPage() {
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [allFiltered, setAllFiltered] = useState(false); // aplicar a TODOS os resultados do filtro
-  const [bulk, setBulk] = useState({ accountId: "", sectorId: "", unitId: "" });
+  const [bulk, setBulk] = useState({ accountId: "", sectorId: "", unitId: "", recurring: "" });
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState("");
 
@@ -133,7 +136,9 @@ export default function TransacoesPage() {
     if (bulk.accountId) body.accountId = bulk.accountId;
     if (bulk.sectorId) body.sectorId = bulk.sectorId;
     if (bulk.unitId) body.unitId = bulk.unitId;
-    if (!bulk.accountId && !bulk.sectorId && !bulk.unitId) return;
+    if (bulk.recurring === "1") body.recurring = true;
+    if (bulk.recurring === "0") body.recurring = false;
+    if (!bulk.accountId && !bulk.sectorId && !bulk.unitId && !bulk.recurring) return;
     const res = await fetch("/api/transactions", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -141,7 +146,7 @@ export default function TransacoesPage() {
     });
     const d = await res.json();
     setFeedback(res.ok ? `✅ ${d.updated} lançamentos atualizados.` : d.error ?? "Erro ao atualizar");
-    setBulk({ accountId: "", sectorId: "", unitId: "" });
+    setBulk({ accountId: "", sectorId: "", unitId: "", recurring: "" });
     load();
   }
 
@@ -321,6 +326,11 @@ export default function TransacoesPage() {
               <option key={u.id} value={u.id}>{u.name}</option>
             ))}
           </select>
+          <select className={selectCls} value={bulk.recurring} onChange={(e) => setBulk({ ...bulk, recurring: e.target.value })}>
+            <option value="">Fixa mensal...</option>
+            <option value="1">📌 Marcar como fixa</option>
+            <option value="0">Desmarcar fixa</option>
+          </select>
           <button onClick={applyBulk} className="bg-blue-600 text-white rounded-lg px-4 py-1.5 font-semibold hover:bg-blue-700">
             Aplicar
           </button>
@@ -366,6 +376,7 @@ export default function TransacoesPage() {
                   <th className="py-2 pr-3">Descrição</th>
                   <th className="py-2 pr-3">Origem</th>
                   <th className="py-2 pr-3 text-right">Valor</th>
+                  <th className="py-2 pr-3" title="Despesa fixa mensal: projeta a média nos meses futuros do DRE">Fixa</th>
                   <th className="py-2 pr-3">Conta DRE</th>
                   <th className="py-2 pr-3">Setor</th>
                   <th className="py-2">Unidade</th>
@@ -380,10 +391,28 @@ export default function TransacoesPage() {
                     <td className="py-1.5 pr-3 whitespace-nowrap text-slate-600">
                       {new Date(t.date).toLocaleDateString("pt-BR", { timeZone: "UTC" })}
                     </td>
-                    <td className="py-1.5 pr-3 max-w-sm truncate" title={t.description}>{t.description}</td>
+                    <td className="py-1.5 pr-3 max-w-sm truncate" title={t.description}>
+                      {t.description}
+                      {t.installmentNum != null && t.installmentTotal != null && (
+                        <span className="ml-1.5 text-[10px] bg-sky-100 text-sky-700 rounded px-1 py-0.5 whitespace-nowrap">
+                          parc. {t.installmentNum}/{t.installmentTotal}
+                        </span>
+                      )}
+                    </td>
                     <td className="py-1.5 pr-3 text-xs text-slate-500 whitespace-nowrap">{t.bankAccount.name}</td>
                     <td className={`py-1.5 pr-3 text-right whitespace-nowrap font-medium tabular-nums ${t.amountCents < 0 ? "text-red-600" : "text-emerald-600"}`}>
                       {formatBRL(t.amountCents)}
+                    </td>
+                    <td className="py-1.5 pr-3">
+                      <button
+                        onClick={() => updateOne(t.id, { recurring: !t.recurring })}
+                        title={t.recurring ? "Despesa fixa mensal (clique para desmarcar)" : "Marcar como despesa fixa mensal"}
+                        className={`text-base leading-none rounded px-1 py-0.5 transition-all ${
+                          t.recurring ? "" : "opacity-20 grayscale hover:opacity-60"
+                        }`}
+                      >
+                        📌
+                      </button>
                     </td>
                     <td className="py-1.5 pr-3">
                       <select

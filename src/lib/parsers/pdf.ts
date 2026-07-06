@@ -1,6 +1,6 @@
 import { PDFParse } from "pdf-parse";
 import { parseToCents } from "@/lib/money";
-import { ParseResult, ParsedTransaction } from "./types";
+import { ParseResult, ParsedTransaction, parseInstallment } from "./types";
 
 export async function extractPdfText(buf: Buffer): Promise<{ text: string; numpages: number }> {
   const parser = new PDFParse({ data: new Uint8Array(buf) });
@@ -41,10 +41,14 @@ export function parseCardPdfText(text: string): ParseResult {
     const year = month > refMonth ? refYear - 1 : refYear;
     const desc = m[3].replace(/\s{2,}/g, " ").trim();
     if (!desc) continue;
+    // parcela embutida na descrição (ex.: "CENTAURO CE195 06/08 JUNDIAI BR")
+    const parc = desc.match(/(?:^|\s)(\d{1,2})\/(\d{1,2})(?:\s|$)/);
+    const installment = parc ? parseInstallment(`${parc[1]}/${parc[2]}`) : {};
     rows.push({
       date: `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`,
       description: desc,
       amountCents: -cents, // fatura de cartão: despesa positiva vira débito
+      ...installment,
     });
   }
   if (rows.length === 0) warnings.push("Nenhum lançamento reconhecido no PDF.");

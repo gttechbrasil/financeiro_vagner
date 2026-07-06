@@ -45,7 +45,7 @@ export default function ImportarPage() {
     rows: PreviewRow[];
   } | null>(null);
   const [batches, setBatches] = useState<Batch[]>([]);
-  const [result, setResult] = useState<{ imported: number; skipped: number } | null>(null);
+  const [result, setResult] = useState<{ imported: number; skipped: number; batchId: string | null } | null>(null);
 
   useEffect(() => {
     fetch("/api/meta").then((r) => r.json()).then(setMeta);
@@ -179,10 +179,29 @@ export default function ImportarPage() {
         </button>
         {error && <p className="text-sm text-red-600">{error}</p>}
         {result && (
-          <p className="text-sm text-green-700 font-medium">
-            ✅ {result.imported} transações importadas
-            {result.skipped > 0 && ` (${result.skipped} ignoradas por duplicidade)`}.
-          </p>
+          <div className="flex flex-wrap items-center gap-3 bg-green-50 border border-green-200 rounded-lg p-3">
+            <p className="text-sm text-green-700 font-medium">
+              ✅ {result.imported} transações importadas
+              {result.skipped > 0 && ` (${result.skipped} ignoradas por duplicidade)`}.
+            </p>
+            {result.batchId && result.imported > 0 && (
+              <button
+                onClick={async () => {
+                  if (!confirm("Cancelar esta importação? Todas as transações deste arquivo serão removidas.")) return;
+                  await fetch("/api/batches", {
+                    method: "DELETE",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id: result.batchId }),
+                  });
+                  setResult(null);
+                  loadBatches();
+                }}
+                className="text-sm border border-red-300 text-red-600 rounded-lg px-3 py-1.5 hover:bg-red-50 font-medium"
+              >
+                ↩️ Cancelar esta importação
+              </button>
+            )}
+          </div>
         )}
       </div>
 

@@ -43,6 +43,12 @@ npm run build && npm start
   medo). Importações podem ser desfeitas ("Desfazer" no histórico de lotes).
 - **Regras** — "se a descrição contém X → conta Y (+ setor/unidade)". Aplicadas na
   importação. Já vem com ~28 regras (taxas Asaas, IOF, Google Ads, sistemas jurídicos...).
+- **Previsão no DRE** — meses futuros mostram projeção (em azul itálico) composta por:
+  (a) parcelas restantes de compras parceladas (extraídas automaticamente das faturas:
+  "parcela 03/10") e (b) média mensal das despesas marcadas como **fixa mensal**
+  (📌 na tela de Transações, individual ou em lote). Toggle "Com previsão / Só realizado"
+  no DRE. Se a fatura de um mês futuro já foi importada, a projeção daquele cartão
+  naquele mês é suprimida para não duplicar.
 - **Cadastros** — plano de contas do DRE, setores, unidades e contas bancárias.
 
 ## Formatos de importação suportados

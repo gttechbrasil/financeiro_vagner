@@ -104,7 +104,7 @@ export async function PATCH(req: NextRequest) {
   }
 
   const data: Record<string, unknown> = {};
-  for (const k of ["accountId", "sectorId", "unitId", "notes"]) {
+  for (const k of ["accountId", "sectorId", "unitId", "notes", "recurring"]) {
     if (k in b) data[k] = b[k];
   }
   if (ids.length === 1) {

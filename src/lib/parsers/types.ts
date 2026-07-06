@@ -6,6 +6,24 @@ export interface ParsedTransaction {
   amountCents: number;
   /** Identificador externo (id da transação no banco de origem), quando houver */
   externalId?: string;
+  /** Compra parcelada: número da parcela atual (ex.: 6 de 10) */
+  installmentNum?: number;
+  /** Compra parcelada: total de parcelas */
+  installmentTotal?: number;
+}
+
+/** Interpreta "06/10", "6/10" etc. como parcela atual/total. */
+export function parseInstallment(raw: string | undefined | null): {
+  installmentNum?: number;
+  installmentTotal?: number;
+} {
+  if (!raw) return {};
+  const m = raw.trim().match(/^(\d{1,2})\/(\d{1,2})$/);
+  if (!m) return {};
+  const num = Number(m[1]);
+  const total = Number(m[2]);
+  if (total < 2 || num < 1 || num > total) return {};
+  return { installmentNum: num, installmentTotal: total };
 }
 
 export interface ParseResult {

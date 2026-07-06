@@ -27,8 +27,16 @@ const SCHEMA = {
             description:
               "Valor em reais. Em fatura de cartão: despesa NEGATIVA, pagamento/estorno POSITIVO. Em extrato de conta: crédito positivo, débito negativo.",
           },
+          installment_current: {
+            type: "integer",
+            description: "Se a compra é parcelada (ex.: 'Parcela 4/12'), o número da parcela atual (4). Use 0 se não for parcelada.",
+          },
+          installment_total: {
+            type: "integer",
+            description: "Se a compra é parcelada, o total de parcelas (12). Use 0 se não for parcelada.",
+          },
         },
-        required: ["date", "description", "amount"],
+        required: ["date", "description", "amount", "installment_current", "installment_total"],
         additionalProperties: false,
       },
     },
@@ -109,14 +117,25 @@ export async function parsePdfWithAI(buf: Buffer, fileName: string): Promise<Par
   try {
     const data = JSON.parse(textBlock.text) as {
       documento: string;
-      transactions: { date: string; description: string; amount: number }[];
+      transactions: {
+        date: string;
+        description: string;
+        amount: number;
+        installment_current: number;
+        installment_total: number;
+      }[];
     };
     for (const t of data.transactions) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(t.date)) continue;
+      const isInstallment =
+        t.installment_total >= 2 && t.installment_current >= 1 && t.installment_current <= t.installment_total;
       rows.push({
         date: t.date,
         description: t.description,
         amountCents: Math.round(t.amount * 100),
+        ...(isInstallment
+          ? { installmentNum: t.installment_current, installmentTotal: t.installment_total }
+          : {}),
       });
     }
     if (message.stop_reason === "max_tokens") {

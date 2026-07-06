@@ -12,6 +12,8 @@ interface CommitRow {
   accountId?: string | null;
   sectorId?: string | null;
   unitId?: string | null;
+  installmentNum?: number | null;
+  installmentTotal?: number | null;
 }
 
 export async function POST(req: NextRequest) {
@@ -51,6 +53,8 @@ export async function POST(req: NextRequest) {
     importBatchId: string;
     externalId: string | null;
     hash: string;
+    installmentNum: number | null;
+    installmentTotal: number | null;
   }[] = [];
 
   const seen = new Set<string>();
@@ -72,6 +76,8 @@ export async function POST(req: NextRequest) {
       importBatchId: batch.id,
       externalId: r.externalId ?? null,
       hash: h,
+      installmentNum: r.installmentNum ?? null,
+      installmentTotal: r.installmentTotal ?? null,
     });
     imported++;
   });

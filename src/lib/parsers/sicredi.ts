@@ -1,6 +1,6 @@
 import * as XLSX from "xlsx";
 import { parseToCents, parseDateBR } from "@/lib/money";
-import { ParseResult, ParsedTransaction } from "./types";
+import { ParseResult, ParsedTransaction, parseInstallment } from "./types";
 
 /**
  * Extrato de conta corrente Sicredi (.xls): cabeçalho
@@ -34,14 +34,19 @@ export function parseSicrediXls(buf: Buffer): ParseResult | null {
     const cents = parseToCents(r[iValor]?.toString() ?? "");
     if (cents === null) continue;
     let desc = r[1]?.toString().trim() ?? "";
+    let installment = {};
     if (isCard && iParcela >= 0) {
       const parcela = r[iParcela]?.toString().trim();
-      if (parcela && parcela !== "01/01") desc += ` (parcela ${parcela})`;
+      if (parcela && parcela !== "01/01") {
+        desc += ` (parcela ${parcela})`;
+        installment = parseInstallment(parcela);
+      }
     }
     rows.push({
       date: date.toISOString().slice(0, 10),
       description: desc || "Sem descrição",
       amountCents: isCard ? -cents : cents,
+      ...installment,
     });
   }
 
@@ -77,6 +82,7 @@ export function parseSicrediCartaoCsv(text: string): ParseResult {
       date: date.toISOString().slice(0, 10),
       description: desc || "Sem descrição",
       amountCents: -cents, // fatura de cartão: despesa positiva vira débito
+      ...parseInstallment(parcela),
     });
   }
   return { source: "sicredi-cartao-csv", sourceLabel: "Cartão Sicredi (CSV)", rows, warnings };
