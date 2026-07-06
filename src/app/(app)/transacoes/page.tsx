@@ -65,8 +65,10 @@ export default function TransacoesPage() {
   const [data, setData] = useState<TxResponse | null>(null);
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [allFiltered, setAllFiltered] = useState(false); // aplicar a TODOS os resultados do filtro
   const [bulk, setBulk] = useState({ accountId: "", sectorId: "", unitId: "" });
   const [loading, setLoading] = useState(false);
+  const [feedback, setFeedback] = useState("");
 
   useEffect(() => {
     fetch("/api/meta").then((r) => r.json()).then(setMeta);
@@ -87,8 +89,22 @@ export default function TransacoesPage() {
     const res = await fetch(`/api/transactions?${p}`);
     setData(await res.json());
     setSelected(new Set());
+    setAllFiltered(false);
     setLoading(false);
   }, [filters, page]);
+
+  function filterParams(): Record<string, string> {
+    const f: Record<string, string> = {};
+    if (filters.year) f.year = filters.year;
+    if (filters.month) f.month = filters.month;
+    if (filters.bankAccountId) f.bankAccountId = filters.bankAccountId;
+    if (filters.accountId) f.accountId = filters.accountId;
+    if (filters.sectorId) f.sectorId = filters.sectorId;
+    if (filters.unitId) f.unitId = filters.unitId;
+    if (filters.unclassified) f.unclassified = "1";
+    if (filters.q) f.q = filters.q;
+    return f;
+  }
 
   useEffect(() => {
     load();
@@ -110,17 +126,21 @@ export default function TransacoesPage() {
   }
 
   async function applyBulk() {
-    if (selected.size === 0) return;
-    const body: Record<string, unknown> = { ids: [...selected] };
+    if (selected.size === 0 && !allFiltered) return;
+    const body: Record<string, unknown> = allFiltered
+      ? { filter: filterParams() }
+      : { ids: [...selected] };
     if (bulk.accountId) body.accountId = bulk.accountId;
     if (bulk.sectorId) body.sectorId = bulk.sectorId;
     if (bulk.unitId) body.unitId = bulk.unitId;
-    if (Object.keys(body).length === 1) return;
-    await fetch("/api/transactions", {
+    if (!bulk.accountId && !bulk.sectorId && !bulk.unitId) return;
+    const res = await fetch("/api/transactions", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
+    const d = await res.json();
+    setFeedback(res.ok ? `✅ ${d.updated} lançamentos atualizados.` : d.error ?? "Erro ao atualizar");
     setBulk({ accountId: "", sectorId: "", unitId: "" });
     load();
   }
@@ -203,10 +223,10 @@ export default function TransacoesPage() {
               ))}
             </select>
           </Field>
-          <Field label="Buscar">
+          <Field label="Descrição">
             <input
               className={selectCls}
-              placeholder="descrição..."
+              placeholder="contém o texto..."
               value={filters.q}
               onChange={(e) => setFilter({ q: e.target.value })}
             />
@@ -253,9 +273,36 @@ export default function TransacoesPage() {
         </div>
       </div>
 
-      {selected.size > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 flex flex-wrap gap-3 items-center text-sm sticky top-2 z-20 shadow">
-          <span className="font-semibold text-blue-900">{selected.size} selecionadas →</span>
+      {feedback && (
+        <p className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-sm text-emerald-800 flex items-center justify-between">
+          {feedback}
+          <button onClick={() => setFeedback("")} className="text-emerald-600 hover:text-emerald-900 px-2">✕</button>
+        </p>
+      )}
+
+      {(selected.size > 0 || allFiltered) && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 space-y-2 text-sm sticky top-2 z-20 shadow">
+          {selected.size === (data?.items.length ?? 0) && (data?.total ?? 0) > selected.size && !allFiltered && (
+            <p className="text-blue-800">
+              Os {selected.size} lançamentos desta página estão selecionados.{" "}
+              <button onClick={() => setAllFiltered(true)} className="font-semibold underline">
+                Selecionar todos os {data?.total} lançamentos do filtro
+              </button>
+            </p>
+          )}
+          {allFiltered && (
+            <p className="text-blue-800">
+              ⚡ A classificação será aplicada a <b>todos os {data?.total} lançamentos</b> que casam com o
+              filtro atual (todas as páginas).{" "}
+              <button onClick={() => setAllFiltered(false)} className="font-semibold underline">
+                Voltar à seleção da página
+              </button>
+            </p>
+          )}
+          <div className="flex flex-wrap gap-3 items-center">
+          <span className="font-semibold text-blue-900">
+            {allFiltered ? `${data?.total ?? 0} do filtro →` : `${selected.size} selecionadas →`}
+          </span>
           <select className={selectCls} value={bulk.accountId} onChange={(e) => setBulk({ ...bulk, accountId: e.target.value })}>
             <option value="">Conta DRE...</option>
             {meta?.accounts.map((a) => (
@@ -277,9 +324,12 @@ export default function TransacoesPage() {
           <button onClick={applyBulk} className="bg-blue-600 text-white rounded-lg px-4 py-1.5 font-semibold hover:bg-blue-700">
             Aplicar
           </button>
-          <button onClick={deleteSelected} className="text-red-600 hover:underline">
-            Excluir
-          </button>
+          {!allFiltered && (
+            <button onClick={deleteSelected} className="text-red-600 hover:underline">
+              Excluir
+            </button>
+          )}
+          </div>
         </div>
       )}
 

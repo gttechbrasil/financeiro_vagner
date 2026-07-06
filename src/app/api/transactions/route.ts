@@ -4,12 +4,11 @@ import { txHash } from "@/lib/hash";
 
 const PAGE_SIZE = 100;
 
-export async function GET(req: NextRequest) {
-  const p = req.nextUrl.searchParams;
+/** Monta o where a partir dos filtros da tela (query string ou corpo). */
+function buildWhere(get: (k: string) => string | null | undefined): Record<string, unknown> {
   const where: Record<string, unknown> = {};
-
-  const year = p.get("year");
-  const month = p.get("month"); // 1-12
+  const year = get("year");
+  const month = get("month"); // 1-12
   if (year) {
     const y = Number(year);
     if (month) {
@@ -19,14 +18,19 @@ export async function GET(req: NextRequest) {
       where.date = { gte: new Date(Date.UTC(y, 0, 1)), lt: new Date(Date.UTC(y + 1, 0, 1)) };
     }
   }
-  if (p.get("bankAccountId")) where.bankAccountId = p.get("bankAccountId");
-  if (p.get("accountId")) where.accountId = p.get("accountId");
-  if (p.get("sectorId")) where.sectorId = p.get("sectorId");
-  if (p.get("unitId")) where.unitId = p.get("unitId");
-  if (p.get("unclassified") === "1") where.accountId = null;
-  const q = p.get("q");
+  if (get("bankAccountId")) where.bankAccountId = get("bankAccountId");
+  if (get("accountId")) where.accountId = get("accountId");
+  if (get("sectorId")) where.sectorId = get("sectorId");
+  if (get("unitId")) where.unitId = get("unitId");
+  if (get("unclassified") === "1") where.accountId = null;
+  const q = get("q");
   if (q) where.description = { contains: q };
+  return where;
+}
 
+export async function GET(req: NextRequest) {
+  const p = req.nextUrl.searchParams;
+  const where = buildWhere((k) => p.get(k));
   const page = Math.max(1, Number(p.get("page") ?? 1));
   const [total, items, sumIn, sumOut] = await Promise.all([
     prisma.transaction.count({ where }),
@@ -88,11 +92,16 @@ export async function POST(req: NextRequest) {
   return NextResponse.json(tx);
 }
 
-/** Atualização em lote (classificação) ou individual */
+/** Atualização em lote (classificação) ou individual.
+ *  Aceita `ids` (lista de transações) OU `filter` (aplica a TODOS os
+ *  lançamentos que casam com os mesmos filtros da listagem). */
 export async function PATCH(req: NextRequest) {
   const b = await req.json();
   const ids: string[] = b.ids ?? [];
-  if (ids.length === 0) return NextResponse.json({ error: "Informe ids" }, { status: 400 });
+  const filter = b.filter as Record<string, string> | undefined;
+  if (ids.length === 0 && !filter) {
+    return NextResponse.json({ error: "Informe ids ou filter" }, { status: 400 });
+  }
 
   const data: Record<string, unknown> = {};
   for (const k of ["accountId", "sectorId", "unitId", "notes"]) {
@@ -106,7 +115,16 @@ export async function PATCH(req: NextRequest) {
   if (Object.keys(data).length === 0) {
     return NextResponse.json({ error: "Nada para atualizar" }, { status: 400 });
   }
-  const r = await prisma.transaction.updateMany({ where: { id: { in: ids } }, data });
+
+  const where =
+    ids.length > 0 ? { id: { in: ids } } : buildWhere((k) => filter?.[k]);
+  if (ids.length === 0 && Object.keys(where).length === 0) {
+    return NextResponse.json(
+      { error: "Filtro vazio: selecione ao menos um filtro para aplicar em massa" },
+      { status: 400 }
+    );
+  }
+  const r = await prisma.transaction.updateMany({ where, data });
   return NextResponse.json({ updated: r.count });
 }
 
