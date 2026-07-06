@@ -78,7 +78,9 @@ documento).
 - Fatura de cartão: despesa vira débito (−) e pagamento/estorno vira crédito (+).
   Se algum arquivo vier com sinais invertidos, use o botão **"Inverter sinais"** na prévia.
 - Pagamento de fatura aparece duas vezes (débito na conta corrente e crédito no cartão);
-  deixe ambos **sem conta DRE** para não distorcer o resultado (são transferências).
+  ambos devem ser classificados na conta **9.1 Pagamento de Cartão / Transferências**
+  (grupo "Transferências"), que **não entra no DRE** — já existem regras automáticas
+  para os padrões conhecidos ("Pag Fat Deb Cc", "Pag Fatura Boleto", "PORTOSEG"...).
 - As "Cobranças recebidas" do Asaas não são classificadas automaticamente por tipo de
   honorário (Contrato Inicial, Mensalidade, Êxito...) — classifique na tela de
   Transações ou crie regras por nome/padrão do cliente.

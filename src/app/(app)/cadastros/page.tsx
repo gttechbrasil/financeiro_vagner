@@ -18,6 +18,7 @@ const GROUPS = [
   { key: "NAO_OPERACIONAL", label: "6. Resultado Não Operacional" },
   { key: "PRO_LABORE", label: "7. Pró-Labore" },
   { key: "DISTRIBUICAO", label: "8. Distribuição de Lucros" },
+  { key: "TRANSFERENCIA", label: "9. Transferências (fora do DRE)" },
 ];
 
 const KINDS = [

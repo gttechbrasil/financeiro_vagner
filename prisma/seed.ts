@@ -58,6 +58,10 @@ const ACCOUNTS: { code: string; name: string; group: string }[] = [
   // 7 e 8
   { code: "7.1", name: "Pró-Labore", group: "PRO_LABORE" },
   { code: "8.1", name: "Distribuição de Lucros", group: "DISTRIBUICAO" },
+  // 9. Transferências — classificadas mas NUNCA entram no DRE
+  // (pagamento de fatura de cartão aparece duas vezes: débito na conta e
+  // crédito no cartão; ambos são movimentação interna, não receita/despesa)
+  { code: "9.1", name: "Pagamento de Cartão / Transferências", group: "TRANSFERENCIA" },
 ];
 
 const SECTORS = ["Diretoria", "Jurídico", "Comercial", "Marketing", "Financeiro", "Administrativo"];
@@ -103,6 +107,13 @@ const RULES: { pattern: string; account: string; sector?: string }[] = [
   { pattern: "CUSTAS", account: "3.5", sector: "Jurídico" },
   { pattern: "TJSP", account: "3.5", sector: "Jurídico" },
   { pattern: "TRIBUN", account: "3.5", sector: "Jurídico" },
+  // pagamentos de fatura de cartão (transferências — fora do DRE)
+  { pattern: "Pag Fat Deb Cc", account: "9.1" },
+  { pattern: "Pag Fatura Boleto", account: "9.1" },
+  { pattern: "Inclusao de Pagamento", account: "9.1" },
+  { pattern: "ReembolsoSaldoCredor", account: "9.1" },
+  { pattern: "PORTOSEG", account: "9.1" },
+  { pattern: "Pagamento de fatura", account: "9.1" },
 ];
 
 async function main() {
@@ -133,18 +144,19 @@ async function main() {
     await prisma.bankAccount.upsert({ where: { name: b.name }, update: {}, create: b });
   }
 
-  const existingRules = await prisma.rule.count();
-  if (existingRules === 0) {
-    for (const r of RULES) {
-      const account = await prisma.dreAccount.findUnique({ where: { code: r.account } });
-      if (!account) continue;
-      const sector = r.sector
-        ? await prisma.sector.findUnique({ where: { name: r.sector } })
-        : null;
-      await prisma.rule.create({
-        data: { pattern: r.pattern, accountId: account.id, sectorId: sector?.id ?? null },
-      });
-    }
+  // idempotente: cria apenas as regras cujo padrão ainda não existe,
+  // preservando regras criadas/editadas pelo usuário
+  for (const r of RULES) {
+    const exists = await prisma.rule.findFirst({ where: { pattern: r.pattern } });
+    if (exists) continue;
+    const account = await prisma.dreAccount.findUnique({ where: { code: r.account } });
+    if (!account) continue;
+    const sector = r.sector
+      ? await prisma.sector.findUnique({ where: { name: r.sector } })
+      : null;
+    await prisma.rule.create({
+      data: { pattern: r.pattern, accountId: account.id, sectorId: sector?.id ?? null },
+    });
   }
 
   console.log("Seed concluído.");
