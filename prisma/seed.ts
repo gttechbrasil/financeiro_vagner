@@ -27,14 +27,15 @@ const ACCOUNTS: { code: string; name: string; group: string }[] = [
   { code: "3.5", name: "Custas Processuais", group: "CUSTO" },
   { code: "3.6", name: "Emolumentos", group: "CUSTO" },
   { code: "3.7", name: "Correios", group: "CUSTO" },
-  { code: "3.8", name: "Deslocamentos", group: "CUSTO" },
-  { code: "3.9", name: "Sistemas Jurídicos", group: "CUSTO" },
+  { code: "3.8", name: "Reembolso de Despesas", group: "CUSTO" },
+  // 3.9 Sistemas Jurídicos foi unificado com 4.5 CRM/Sistemas (ver main())
+  { code: "3.10", name: "Registradores", group: "CUSTO" },
   // 4. Despesas Operacionais
   { code: "4.1", name: "Google Ads", group: "DESPESA" },
   { code: "4.2", name: "Meta Ads", group: "DESPESA" },
   { code: "4.3", name: "Agência de Marketing", group: "DESPESA" },
   { code: "4.4", name: "Produção de Conteúdo", group: "DESPESA" },
-  { code: "4.5", name: "CRM/Ferramentas Comerciais", group: "DESPESA" },
+  { code: "4.5", name: "CRM/Sistemas", group: "DESPESA" },
   { code: "4.6", name: "Honorários Administrativos", group: "DESPESA" },
   { code: "4.7", name: "Contabilidade", group: "DESPESA" },
   { code: "4.8", name: "Financeiro", group: "DESPESA" },
@@ -51,6 +52,7 @@ const ACCOUNTS: { code: string; name: string; group: string }[] = [
   { code: "5.4", name: "Tarifas Bancárias", group: "FINANCEIRO" },
   { code: "5.5", name: "Tarifas Asaas/Cartão", group: "FINANCEIRO" },
   { code: "5.6", name: "Juros de Empréstimos", group: "FINANCEIRO" },
+  { code: "5.7", name: "Crédito Rotativo", group: "FINANCEIRO" },
   // 6. Resultado Não Operacional
   { code: "6.1", name: "Investimentos", group: "NAO_OPERACIONAL" },
   { code: "6.2", name: "Baixa de Ativos", group: "NAO_OPERACIONAL" },
@@ -59,9 +61,12 @@ const ACCOUNTS: { code: string; name: string; group: string }[] = [
   { code: "7.1", name: "Pró-Labore", group: "PRO_LABORE" },
   { code: "8.1", name: "Distribuição de Lucros", group: "DISTRIBUICAO" },
   // 9. Transferências — classificadas mas NUNCA entram no DRE
-  // (pagamento de fatura de cartão aparece duas vezes: débito na conta e
-  // crédito no cartão; ambos são movimentação interna, não receita/despesa)
+  // (movimentações que não são receita nem despesa do período)
   { code: "9.1", name: "Pagamento de Cartão / Transferências", group: "TRANSFERENCIA" },
+  { code: "9.2", name: "Empréstimo", group: "TRANSFERENCIA" },
+  { code: "9.3", name: "Aporte Sócio", group: "TRANSFERENCIA" },
+  { code: "9.4", name: "Repasse MLE", group: "TRANSFERENCIA" },
+  { code: "9.5", name: "Adiantamento Cobranças", group: "TRANSFERENCIA" },
 ];
 
 const SECTORS = ["Diretoria", "Jurídico", "Comercial", "Marketing", "Financeiro", "Administrativo"];
@@ -92,13 +97,13 @@ const RULES: { pattern: string; account: string; sector?: string }[] = [
   { pattern: "GOOGLE ADS", account: "4.1", sector: "Marketing" },
   { pattern: "FACEBK", account: "4.2", sector: "Marketing" },
   { pattern: "META ADS", account: "4.2", sector: "Marketing" },
-  { pattern: "JUSBRASIL", account: "3.9", sector: "Jurídico" },
-  { pattern: "LEGALCLOUD", account: "3.9", sector: "Jurídico" },
-  { pattern: "ESCAVADOR", account: "3.9", sector: "Jurídico" },
-  { pattern: "JUSFY", account: "3.9", sector: "Jurídico" },
-  { pattern: "ADVBOX", account: "3.9", sector: "Jurídico" },
-  { pattern: "CHATGURU", account: "3.9", sector: "Jurídico" },
-  { pattern: "DOC9", account: "3.9", sector: "Jurídico" },
+  { pattern: "JUSBRASIL", account: "4.5", sector: "Jurídico" },
+  { pattern: "LEGALCLOUD", account: "4.5", sector: "Jurídico" },
+  { pattern: "ESCAVADOR", account: "4.5", sector: "Jurídico" },
+  { pattern: "JUSFY", account: "4.5", sector: "Jurídico" },
+  { pattern: "ADVBOX", account: "4.5", sector: "Jurídico" },
+  { pattern: "CHATGURU", account: "4.5", sector: "Jurídico" },
+  { pattern: "DOC9", account: "4.5", sector: "Jurídico" },
   { pattern: "AWS", account: "4.10", sector: "Administrativo" },
   { pattern: "OPENAI", account: "4.10", sector: "Administrativo" },
   { pattern: "GOOGLE WORKSPACE", account: "4.10", sector: "Administrativo" },
@@ -142,6 +147,38 @@ async function main() {
   }
   for (const b of BANK_ACCOUNTS) {
     await prisma.bankAccount.upsert({ where: { name: b.name }, update: {}, create: b });
+  }
+
+  // Unificação: 3.9 Sistemas Jurídicos → 4.5 CRM/Sistemas
+  // (move transações e regras, desativa a conta antiga)
+  const old39 = await prisma.dreAccount.findUnique({ where: { code: "3.9" } });
+  const acc45 = await prisma.dreAccount.findUnique({ where: { code: "4.5" } });
+  if (old39 && acc45) {
+    const moved = await prisma.transaction.updateMany({
+      where: { accountId: old39.id },
+      data: { accountId: acc45.id },
+    });
+    await prisma.rule.updateMany({
+      where: { accountId: old39.id },
+      data: { accountId: acc45.id },
+    });
+    if (old39.active) {
+      await prisma.dreAccount.update({ where: { id: old39.id }, data: { active: false } });
+    }
+    if (moved.count > 0) {
+      console.log(`Unificação 3.9→4.5: ${moved.count} transações movidas.`);
+    }
+  }
+
+  // Renomear "Imposto" → "Imposto/Tributos" (conta criada pelo usuário, se existir)
+  const imposto = await prisma.dreAccount.findFirst({
+    where: { name: { in: ["Imposto", "Impostos"] } },
+  });
+  if (imposto) {
+    await prisma.dreAccount.update({
+      where: { id: imposto.id },
+      data: { name: "Imposto/Tributos" },
+    });
   }
 
   // idempotente: cria apenas as regras cujo padrão ainda não existe,

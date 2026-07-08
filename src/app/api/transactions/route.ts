@@ -44,6 +44,7 @@ export async function GET(req: NextRequest) {
         sector: { select: { name: true } },
         unit: { select: { name: true } },
         bankAccount: { select: { name: true } },
+        importBatch: { select: { id: true, fileName: true, source: true, createdAt: true } },
       },
     }),
     prisma.transaction.aggregate({

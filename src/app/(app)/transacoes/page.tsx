@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { formatBRL, MONTHS_PT } from "@/lib/money";
+import QuickAdd from "@/components/QuickAdd";
 
 interface Meta {
   accounts: { id: string; code: string; name: string }[];
@@ -21,10 +22,12 @@ interface Tx {
   recurring: boolean;
   installmentNum: number | null;
   installmentTotal: number | null;
+  notes: string | null;
   account: { code: string; name: string } | null;
   sector: { name: string } | null;
   unit: { name: string } | null;
   bankAccount: { name: string };
+  importBatch: { id: string; fileName: string; source: string; createdAt: string } | null;
 }
 
 interface TxResponse {
@@ -72,10 +75,15 @@ export default function TransacoesPage() {
   const [bulk, setBulk] = useState({ accountId: "", sectorId: "", unitId: "", recurring: "" });
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState("");
+  const [detailTx, setDetailTx] = useState<Tx | null>(null);
 
-  useEffect(() => {
+  const loadMeta = useCallback(() => {
     fetch("/api/meta").then((r) => r.json()).then(setMeta);
   }, []);
+
+  useEffect(() => {
+    loadMeta();
+  }, [loadMeta]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -247,14 +255,19 @@ export default function TransacoesPage() {
             </label>
           </Field>
         </div>
-        {hasActiveFilters && (
-          <button
-            onClick={() => { setFilters({ ...EMPTY_FILTERS, year: filters.year }); setPage(1); }}
-            className="mt-3 text-xs text-blue-600 hover:underline"
-          >
-            ✕ Limpar filtros
-          </button>
-        )}
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+          {hasActiveFilters ? (
+            <button
+              onClick={() => { setFilters({ ...EMPTY_FILTERS, year: filters.year }); setPage(1); }}
+              className="text-xs text-blue-600 hover:underline"
+            >
+              ✕ Limpar filtros
+            </button>
+          ) : (
+            <span />
+          )}
+          <QuickAdd onCreated={loadMeta} />
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
@@ -391,8 +404,14 @@ export default function TransacoesPage() {
                     <td className="py-1.5 pr-3 whitespace-nowrap text-slate-600">
                       {new Date(t.date).toLocaleDateString("pt-BR", { timeZone: "UTC" })}
                     </td>
-                    <td className="py-1.5 pr-3 max-w-sm truncate" title={t.description}>
-                      {t.description}
+                    <td className="py-1.5 pr-3 max-w-sm truncate">
+                      <button
+                        onClick={() => setDetailTx(t)}
+                        className="hover:underline hover:text-blue-700 text-left truncate max-w-full"
+                        title={`${t.description} — clique para ver a origem`}
+                      >
+                        {t.description}
+                      </button>
                       {t.installmentNum != null && t.installmentTotal != null && (
                         <span className="ml-1.5 text-[10px] bg-sky-100 text-sky-700 rounded px-1 py-0.5 whitespace-nowrap">
                           parc. {t.installmentNum}/{t.installmentTotal}
@@ -457,6 +476,72 @@ export default function TransacoesPage() {
           </div>
         )}
       </div>
+
+      {detailTx && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setDetailTx(null)}>
+          <div className="bg-white rounded-xl shadow-xl p-5 w-full max-w-md space-y-3" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-3">
+              <h3 className="font-semibold leading-snug">{detailTx.description}</h3>
+              <button onClick={() => setDetailTx(null)} className="text-slate-400 hover:text-slate-700 shrink-0">✕</button>
+            </div>
+            <div className="text-sm space-y-1.5">
+              <p className="flex justify-between gap-3">
+                <span className="text-slate-500">Data</span>
+                <span>{new Date(detailTx.date).toLocaleDateString("pt-BR", { timeZone: "UTC" })}</span>
+              </p>
+              <p className="flex justify-between gap-3">
+                <span className="text-slate-500">Valor</span>
+                <span className={`font-semibold ${detailTx.amountCents < 0 ? "text-red-600" : "text-emerald-600"}`}>
+                  {formatBRL(detailTx.amountCents)}
+                </span>
+              </p>
+              <p className="flex justify-between gap-3">
+                <span className="text-slate-500">Origem</span>
+                <span>{detailTx.bankAccount.name}</span>
+              </p>
+              {detailTx.installmentNum != null && detailTx.installmentTotal != null && (
+                <p className="flex justify-between gap-3">
+                  <span className="text-slate-500">Parcela</span>
+                  <span>{detailTx.installmentNum} de {detailTx.installmentTotal}</span>
+                </p>
+              )}
+              <p className="flex justify-between gap-3">
+                <span className="text-slate-500">Conta DRE</span>
+                <span>{detailTx.account ? `${detailTx.account.code} ${detailTx.account.name}` : "— não classificada —"}</span>
+              </p>
+              {(detailTx.sector || detailTx.unit) && (
+                <p className="flex justify-between gap-3">
+                  <span className="text-slate-500">Centro de custo</span>
+                  <span>{[detailTx.sector?.name, detailTx.unit?.name].filter(Boolean).join(" · ")}</span>
+                </p>
+              )}
+            </div>
+
+            <div className="border-t border-slate-100 pt-3 text-sm">
+              {detailTx.importBatch ? (
+                <>
+                  <p className="text-slate-500 text-xs uppercase tracking-wide font-semibold mb-1.5">
+                    Extrato/fatura de origem
+                  </p>
+                  <p className="mb-1">{detailTx.importBatch.fileName}</p>
+                  <p className="text-xs text-slate-500 mb-2">
+                    {detailTx.importBatch.source} · importado em{" "}
+                    {new Date(detailTx.importBatch.createdAt).toLocaleString("pt-BR")}
+                  </p>
+                  <a
+                    href={`/api/batches/${detailTx.importBatch.id}/file`}
+                    className="inline-block bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-3 py-1.5 text-sm font-medium"
+                  >
+                    ⬇️ Baixar arquivo original
+                  </a>
+                </>
+              ) : (
+                <p className="text-xs text-slate-500">Lançamento manual (sem arquivo de origem).</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

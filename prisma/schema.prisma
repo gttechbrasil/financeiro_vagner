@@ -54,6 +54,9 @@ model ImportBatch {
   id           String        @id @default(cuid())
   fileName     String
   source       String
+  // arquivo original importado, para consulta posterior a partir do lançamento
+  fileData     Bytes?
+  fileMime     String?
   createdAt    DateTime      @default(now())
   transactions Transaction[]
 }

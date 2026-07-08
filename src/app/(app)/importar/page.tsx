@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { formatBRL } from "@/lib/money";
+import QuickAdd from "@/components/QuickAdd";
 
 interface Meta {
   accounts: { id: string; code: string; name: string }[];
@@ -47,10 +48,14 @@ export default function ImportarPage() {
   const [batches, setBatches] = useState<Batch[]>([]);
   const [result, setResult] = useState<{ imported: number; skipped: number; batchId: string | null } | null>(null);
 
-  useEffect(() => {
+  const loadMeta = useCallback(() => {
     fetch("/api/meta").then((r) => r.json()).then(setMeta);
-    loadBatches();
   }, []);
+
+  useEffect(() => {
+    loadMeta();
+    loadBatches();
+  }, [loadMeta]);
 
   function loadBatches() {
     fetch("/api/batches").then((r) => r.json()).then(setBatches);
@@ -102,16 +107,14 @@ export default function ImportarPage() {
     }
     setLoading(true);
     setError("");
-    const res = await fetch("/api/import/commit", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        bankAccountId,
-        fileName: preview.fileName,
-        source: preview.sourceLabel,
-        rows,
-      }),
-    });
+    // multipart: linhas + arquivo original (guardado para consulta posterior)
+    const fd = new FormData();
+    fd.append(
+      "payload",
+      JSON.stringify({ bankAccountId, fileName: preview.fileName, source: preview.sourceLabel, rows })
+    );
+    if (file) fd.append("file", file);
+    const res = await fetch("/api/import/commit", { method: "POST", body: fd });
     setLoading(false);
     const data = await res.json();
     if (!res.ok) {
@@ -241,6 +244,10 @@ export default function ImportarPage() {
             </div>
           )}
 
+          <div className="flex justify-end">
+            <QuickAdd onCreated={loadMeta} />
+          </div>
+
           <div className="overflow-x-auto -mx-5 px-5">
             <table className="w-full text-sm">
               <thead>
@@ -350,7 +357,11 @@ export default function ImportarPage() {
                   <td className="py-2 pr-3 whitespace-nowrap">
                     {new Date(b.createdAt).toLocaleString("pt-BR")}
                   </td>
-                  <td className="py-2 pr-3">{b.fileName}</td>
+                  <td className="py-2 pr-3">
+                    <a href={`/api/batches/${b.id}/file`} className="hover:underline hover:text-blue-700" title="Baixar arquivo original">
+                      {b.fileName}
+                    </a>
+                  </td>
                   <td className="py-2 pr-3">{b.source}</td>
                   <td className="py-2 pr-3 text-right">{b._count.transactions}</td>
                   <td className="py-2 text-right">

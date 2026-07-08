@@ -17,12 +17,22 @@ interface CommitRow {
 }
 
 export async function POST(req: NextRequest) {
-  const body = (await req.json()) as {
-    bankAccountId: string;
-    fileName: string;
-    source: string;
-    rows: CommitRow[];
-  };
+  // multipart (payload JSON + arquivo original) ou JSON puro (compatibilidade)
+  let body: { bankAccountId: string; fileName: string; source: string; rows: CommitRow[] };
+  let fileData: Uint8Array<ArrayBuffer> | null = null;
+  let fileMime: string | null = null;
+  const contentType = req.headers.get("content-type") ?? "";
+  if (contentType.includes("multipart/form-data")) {
+    const form = await req.formData();
+    body = JSON.parse(form.get("payload") as string);
+    const file = form.get("file") as File | null;
+    if (file) {
+      fileData = new Uint8Array(await file.arrayBuffer());
+      fileMime = file.type || "application/octet-stream";
+    }
+  } else {
+    body = await req.json();
+  }
   if (!body.bankAccountId || !Array.isArray(body.rows) || body.rows.length === 0) {
     return NextResponse.json({ error: "Nada para importar" }, { status: 400 });
   }
@@ -37,7 +47,7 @@ export async function POST(req: NextRequest) {
   const existingSet = new Set(existing.map((e) => e.hash));
 
   const batch = await prisma.importBatch.create({
-    data: { fileName: body.fileName, source: body.source },
+    data: { fileName: body.fileName, source: body.source, fileData, fileMime },
   });
 
   let imported = 0;
