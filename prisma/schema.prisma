@@ -16,6 +16,7 @@ model User {
 
 // Plano de contas do DRE gerencial.
 // group: RECEITA | DEDUCAO | CUSTO | DESPESA | FINANCEIRO | NAO_OPERACIONAL | PRO_LABORE | DISTRIBUICAO
+// Grupos fora do DRE (classificáveis, mas não somam no DRE nem nos KPIs): TRANSFERENCIA | PESSOAL
 model DreAccount {
   id           String        @id @default(cuid())
   code         String        @unique

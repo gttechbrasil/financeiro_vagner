@@ -87,6 +87,11 @@ documento).
   ambos devem ser classificados na conta **9.1 Pagamento de Cartão / Transferências**
   (grupo "Transferências"), que **não entra no DRE** — já existem regras automáticas
   para os padrões conhecidos ("Pag Fat Deb Cc", "Pag Fatura Boleto", "PORTOSEG"...).
+- Gastos pessoais em extratos/cartões PF devem ser classificados na conta
+  **10.1 Despesas Pessoais** (grupo "Despesas Pessoais"), que também **não entra no DRE**.
+  As despesas do escritório que aparecem nesses extratos (Google Ads, Meta, sistemas
+  jurídicos, desenvolvedor...) continuam nas contas normais do DRE — use a
+  classificação em massa por filtro na tela de Transações para agilizar.
 - As "Cobranças recebidas" do Asaas não são classificadas automaticamente por tipo de
   honorário (Contrato Inicial, Mensalidade, Êxito...) — classifique na tela de
   Transações ou crie regras por nome/padrão do cliente.

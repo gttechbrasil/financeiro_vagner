@@ -67,6 +67,10 @@ const ACCOUNTS: { code: string; name: string; group: string }[] = [
   { code: "9.3", name: "Aporte Sócio", group: "TRANSFERENCIA" },
   { code: "9.4", name: "Repasse MLE", group: "TRANSFERENCIA" },
   { code: "9.5", name: "Adiantamento Cobranças", group: "TRANSFERENCIA" },
+  // 10. Despesas Pessoais — classificadas mas NUNCA entram no DRE
+  // (gastos pessoais nos extratos/cartões PF; despesas do escritório nesses
+  // extratos continuam nas contas normais: Google, Meta, sistemas jurídicos...)
+  { code: "10.1", name: "Despesas Pessoais", group: "PESSOAL" },
 ];
 
 const SECTORS = ["Diretoria", "Jurídico", "Comercial", "Marketing", "Financeiro", "Administrativo"];
