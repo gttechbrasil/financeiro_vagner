@@ -96,7 +96,27 @@ export async function parsePdfWithAI(buf: Buffer, fileName: string): Promise<Par
     ],
   });
 
-  const message = await stream.finalMessage();
+  let message;
+  try {
+    message = await stream.finalMessage();
+  } catch (e) {
+    if (e instanceof Anthropic.APIError) {
+      let friendly = `Erro na API de IA (${e.status}). Tente novamente em instantes.`;
+      if (String(e.message).includes("credit balance")) {
+        friendly =
+          "A conta da Anthropic está sem créditos para a extração por IA. " +
+          "Adicione créditos em console.anthropic.com (Plans & Billing) e tente de novo.";
+      } else if (e.status === 401) {
+        friendly =
+          "A ANTHROPIC_API_KEY configurada no .env é inválida ou foi revogada. " +
+          "Gere uma nova em console.anthropic.com e atualize o .env.";
+      } else if (e.status === 429) {
+        friendly = "Limite de uso da API de IA atingido. Aguarde alguns minutos e tente de novo.";
+      }
+      return { source: "pdf-ia", sourceLabel: "PDF via IA", rows: [], warnings: [friendly] };
+    }
+    throw e;
+  }
 
   if (message.stop_reason === "refusal") {
     return {

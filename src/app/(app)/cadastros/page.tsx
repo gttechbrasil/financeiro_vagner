@@ -96,6 +96,15 @@ export default function CadastrosPage() {
     load();
   }
 
+  async function changeGroup(item: Item, group: string) {
+    await fetch(`/api/cadastros/${tab}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: item.id, group }),
+    });
+    load();
+  }
+
   async function remove(item: Item) {
     if (!confirm(`Excluir "${item.name}"?`)) return;
     const res = await fetch(`/api/cadastros/${tab}`, {
@@ -207,8 +216,20 @@ export default function CadastrosPage() {
                 {tab === "plano-de-contas" && <td className="py-2 pr-3 text-slate-500">{item.code}</td>}
                 <td className="py-2 pr-3">{item.name}</td>
                 {tab === "plano-de-contas" && (
-                  <td className="py-2 pr-3 text-xs text-slate-500">
-                    {GROUPS.find((g) => g.key === item.group)?.label ?? item.group}
+                  <td className="py-2 pr-3">
+                    <select
+                      className="text-xs text-slate-600 border border-transparent hover:border-slate-300 rounded-lg px-1 py-0.5 bg-transparent cursor-pointer max-w-52"
+                      value={item.group}
+                      onChange={(e) => changeGroup(item, e.target.value)}
+                      title="Trocar o grupo move a conta (e todos os seus lançamentos) para a nova seção do DRE"
+                    >
+                      {GROUPS.map((g) => (
+                        <option key={g.key} value={g.key}>{g.label}</option>
+                      ))}
+                      {!GROUPS.some((g) => g.key === item.group) && (
+                        <option value={item.group}>{item.group}</option>
+                      )}
+                    </select>
                   </td>
                 )}
                 {tab === "contas-bancarias" && (
