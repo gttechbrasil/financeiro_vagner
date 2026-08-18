@@ -227,13 +227,17 @@ async function main() {
     create: { username: "vagner", name: "Vagner Maschio Pionorio", passwordHash },
   });
 
-  for (let i = 0; i < ACCOUNTS.length; i++) {
-    const a = ACCOUNTS[i];
-    await prisma.dreAccount.upsert({
-      where: { code: a.code },
-      update: { name: a.name, group: a.group, sortOrder: i },
-      create: { ...a, sortOrder: i },
+  // Contas do DRE: NUNCA altera contas existentes (nome/grupo/ordem definidos
+  // pelo usuário no sistema são preservados) — apenas cria as que faltam,
+  // no fim da ordenação para não bagunçar a ordem atual.
+  for (const a of ACCOUNTS) {
+    const exists = await prisma.dreAccount.findUnique({ where: { code: a.code } });
+    if (exists) continue;
+    const max = await prisma.dreAccount.aggregate({ _max: { sortOrder: true } });
+    await prisma.dreAccount.create({
+      data: { ...a, sortOrder: (max._max.sortOrder ?? 0) + 1 },
     });
+    console.log(`Conta criada: ${a.code} ${a.name}`);
   }
 
   for (const name of SECTORS) {
@@ -246,37 +250,9 @@ async function main() {
     await prisma.bankAccount.upsert({ where: { name: b.name }, update: {}, create: b });
   }
 
-  // Unificação: 3.9 Sistemas Jurídicos → 4.5 CRM/Sistemas
-  // (move transações e regras, desativa a conta antiga)
-  const old39 = await prisma.dreAccount.findUnique({ where: { code: "3.9" } });
-  const acc45 = await prisma.dreAccount.findUnique({ where: { code: "4.5" } });
-  if (old39 && acc45) {
-    const moved = await prisma.transaction.updateMany({
-      where: { accountId: old39.id },
-      data: { accountId: acc45.id },
-    });
-    await prisma.rule.updateMany({
-      where: { accountId: old39.id },
-      data: { accountId: acc45.id },
-    });
-    if (old39.active) {
-      await prisma.dreAccount.update({ where: { id: old39.id }, data: { active: false } });
-    }
-    if (moved.count > 0) {
-      console.log(`Unificação 3.9→4.5: ${moved.count} transações movidas.`);
-    }
-  }
-
-  // Renomear "Imposto" → "Imposto/Tributos" (conta criada pelo usuário, se existir)
-  const imposto = await prisma.dreAccount.findFirst({
-    where: { name: { in: ["Imposto", "Impostos"] } },
-  });
-  if (imposto) {
-    await prisma.dreAccount.update({
-      where: { id: imposto.id },
-      data: { name: "Imposto/Tributos" },
-    });
-  }
+  // (Migrações pontuais antigas — unificação 3.9→4.5 e renomeio de "Imposto" —
+  // foram removidas: já aplicadas em produção; mantê-las poderia desfazer
+  // renomeios/ajustes feitos pelo usuário no sistema.)
 
   // Migração das taxas Asaas: regras que apontavam para a antiga 5.5 passam a
   // apontar para a conta específica da taxa; transações já classificadas em 5.5
