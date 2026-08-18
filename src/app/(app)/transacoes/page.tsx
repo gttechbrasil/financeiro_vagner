@@ -389,7 +389,7 @@ export default function TransacoesPage() {
                   <th className="py-2 pr-3">Descrição</th>
                   <th className="py-2 pr-3">Origem</th>
                   <th className="py-2 pr-3 text-right">Valor</th>
-                  <th className="py-2 pr-3" title="Despesa fixa mensal: projeta a média nos meses futuros do DRE">Fixa</th>
+                  <th className="py-2 pr-3" title="Lançamento fixo/recorrente (despesa fixa, contrato ou mensalidade recorrente): projeta a média nos meses futuros do DRE">Fixa</th>
                   <th className="py-2 pr-3">Conta DRE</th>
                   <th className="py-2 pr-3">Setor</th>
                   <th className="py-2">Unidade</th>
@@ -425,7 +425,7 @@ export default function TransacoesPage() {
                     <td className="py-1.5 pr-3">
                       <button
                         onClick={() => updateOne(t.id, { recurring: !t.recurring })}
-                        title={t.recurring ? "Despesa fixa mensal (clique para desmarcar)" : "Marcar como despesa fixa mensal"}
+                        title={t.recurring ? "Lançamento fixo/recorrente (clique para desmarcar)" : "Marcar como fixo/recorrente (despesa fixa, contrato ou mensalidade) — entra na previsão do DRE"}
                         className={`text-base leading-none rounded px-1 py-0.5 transition-all ${
                           t.recurring ? "" : "opacity-20 grayscale hover:opacity-60"
                         }`}

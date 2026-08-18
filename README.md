@@ -50,6 +50,26 @@ npm run build && npm start
   no DRE. Se a fatura de um mês futuro já foi importada, a projeção daquele cartão
   naquele mês é suprimida para não duplicar.
 - **Cadastros** — plano de contas do DRE, setores, unidades e contas bancárias.
+- **Drill-down do DRE** — qualquer valor do DRE é clicável e abre a lista dos lançamentos
+  que o compõem (data, descrição, origem, valor, conta, setor, unidade), com
+  reclassificação direto na lista e edição completa do lançamento no modal.
+- **Fornecedores** — cadastro com classificação padrão (ex.: AWS → Tecnologia). Na
+  importação, lançamentos que contêm o padrão são vinculados ao fornecedor e recebem a
+  conta/setor/unidade padrão automaticamente. Botão "Aplicar aos lançamentos existentes"
+  faz o mesmo retroativamente.
+- **Relatórios** — totais por fornecedor, categoria (conta DRE), setor, unidade e origem,
+  além da visão hierárquica Conta DRE → Fornecedor → Lançamentos.
+- **Auditoria** — tela dedicada de "lançamentos não classificados" (todos os anos), com
+  classificação inline; a Sidebar mostra um aviso com a contagem de pendências enquanto
+  existir lançamento sem conta do DRE.
+- **Classificação por histórico** — na importação, lançamentos com a mesma descrição de
+  um lançamento já classificado repetem a classificação anterior automaticamente.
+- **Taxas Asaas separadas** — mensageria, boleto, Pix, cartão, transferência,
+  antecipação, negativação, notificação WhatsApp e robô de voz, cada uma na sua conta
+  (5.8–5.16), preenchidas automaticamente pelo tipo de transação do extrato.
+- **Antecipações Asaas** — o valor antecipado entra como receita
+  (1.10 Antecipação de Recebíveis) e o custo como despesa financeira
+  (5.13 Taxa de Antecipação), separados automaticamente.
 
 ## Formatos de importação suportados
 
@@ -92,9 +112,12 @@ documento).
   As despesas do escritório que aparecem nesses extratos (Google Ads, Meta, sistemas
   jurídicos, desenvolvedor...) continuam nas contas normais do DRE — use a
   classificação em massa por filtro na tela de Transações para agilizar.
-- As "Cobranças recebidas" do Asaas não são classificadas automaticamente por tipo de
-  honorário (Contrato Inicial, Mensalidade, Êxito...) — classifique na tela de
-  Transações ou crie regras por nome/padrão do cliente.
+- As "Cobranças recebidas" do Asaas são classificadas automaticamente quando a descrição
+  da cobrança contém "Contrato Inicial" (→ 1.1), "Mensalidade" (→ 1.3) ou "de Êxito"
+  (→ 1.8). Outros padrões: classifique na tela de Transações ou crie regras.
+- Transferências entre contas próprias (PIX/TED, saque do Asaas para o Sicredi) vão para
+  **9.6 PIX/TED entre Contas Próprias** (fora do DRE). Antecipações e amortização de
+  capital de giro **entram** no DRE (1.10, 5.13 e 5.17).
 - Centros de custo (Setor/Unidade) não duplicam o plano de contas: identificam quem
   gerou a despesa, conforme o modelo.
 

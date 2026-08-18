@@ -22,6 +22,10 @@ function buildWhere(get: (k: string) => string | null | undefined): Record<strin
   if (get("accountId")) where.accountId = get("accountId");
   if (get("sectorId")) where.sectorId = get("sectorId");
   if (get("unitId")) where.unitId = get("unitId");
+  const supplierId = get("supplierId");
+  if (supplierId) where.supplierId = supplierId === "none" ? null : supplierId;
+  // filtra pelo grupo do plano de contas (drill-down do DRE)
+  if (get("group")) where.account = { is: { group: get("group") } };
   if (get("unclassified") === "1") where.accountId = null;
   const q = get("q");
   if (q) where.description = { contains: q };
@@ -43,6 +47,7 @@ export async function GET(req: NextRequest) {
         account: { select: { code: true, name: true } },
         sector: { select: { name: true } },
         unit: { select: { name: true } },
+        supplier: { select: { name: true } },
         bankAccount: { select: { name: true } },
         importBatch: { select: { id: true, fileName: true, source: true, createdAt: true } },
       },
@@ -105,7 +110,7 @@ export async function PATCH(req: NextRequest) {
   }
 
   const data: Record<string, unknown> = {};
-  for (const k of ["accountId", "sectorId", "unitId", "notes", "recurring"]) {
+  for (const k of ["accountId", "sectorId", "unitId", "supplierId", "notes", "recurring"]) {
     if (k in b) data[k] = b[k];
   }
   if (ids.length === 1) {

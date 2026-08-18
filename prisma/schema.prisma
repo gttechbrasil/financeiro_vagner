@@ -26,6 +26,7 @@ model DreAccount {
   active       Boolean       @default(true)
   transactions Transaction[]
   rules        Rule[]
+  suppliers    Supplier[]
 }
 
 model Sector {
@@ -33,6 +34,7 @@ model Sector {
   name         String        @unique
   transactions Transaction[]
   rules        Rule[]
+  suppliers    Supplier[]
 }
 
 model Unit {
@@ -40,6 +42,24 @@ model Unit {
   name         String        @unique
   transactions Transaction[]
   rules        Rule[]
+  suppliers    Supplier[]
+}
+
+// Fornecedor: detectado pela descrição do lançamento (contém `pattern`;
+// se vazio, usa o próprio nome). A classificação padrão (conta/setor/unidade)
+// é aplicada automaticamente na importação quando nenhuma regra específica casar.
+model Supplier {
+  id               String        @id @default(cuid())
+  name             String        @unique
+  pattern          String?
+  defaultAccount   DreAccount?   @relation(fields: [defaultAccountId], references: [id])
+  defaultAccountId String?
+  defaultSector    Sector?       @relation(fields: [defaultSectorId], references: [id])
+  defaultSectorId  String?
+  defaultUnit      Unit?         @relation(fields: [defaultUnitId], references: [id])
+  defaultUnitId    String?
+  active           Boolean       @default(true)
+  transactions     Transaction[]
 }
 
 // kind: ASAAS | CONTA_CORRENTE | CARTAO_CREDITO
@@ -76,6 +96,8 @@ model Transaction {
   sectorId      String?
   unit          Unit?        @relation(fields: [unitId], references: [id])
   unitId        String?
+  supplier      Supplier?    @relation(fields: [supplierId], references: [id])
+  supplierId    String?
   importBatch   ImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: Cascade)
   importBatchId String?
   externalId    String?
@@ -92,6 +114,7 @@ model Transaction {
   @@index([date])
   @@index([accountId])
   @@index([bankAccountId])
+  @@index([supplierId])
 }
 
 // Regra de classificação automática: se a descrição contém `pattern`

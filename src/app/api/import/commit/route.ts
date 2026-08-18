@@ -12,6 +12,7 @@ interface CommitRow {
   accountId?: string | null;
   sectorId?: string | null;
   unitId?: string | null;
+  supplierId?: string | null;
   installmentNum?: number | null;
   installmentTotal?: number | null;
 }
@@ -60,6 +61,7 @@ export async function POST(req: NextRequest) {
     accountId: string | null;
     sectorId: string | null;
     unitId: string | null;
+    supplierId: string | null;
     importBatchId: string;
     externalId: string | null;
     hash: string;
@@ -83,6 +85,7 @@ export async function POST(req: NextRequest) {
       accountId: r.accountId ?? null,
       sectorId: r.sectorId ?? null,
       unitId: r.unitId ?? null,
+      supplierId: r.supplierId ?? null,
       importBatchId: batch.id,
       externalId: r.externalId ?? null,
       hash: h,

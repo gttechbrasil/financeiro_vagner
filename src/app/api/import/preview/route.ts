@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { detectAndParse } from "@/lib/parsers";
-import { buildClassifier } from "@/lib/rules";
+import { buildClassifier, classifyFromHistory } from "@/lib/rules";
 import { txHash } from "@/lib/hash";
 
 export const runtime = "nodejs";
@@ -39,15 +39,22 @@ export async function POST(req: NextRequest) {
   });
   const existingSet = new Set(existing.map((e) => e.hash));
 
+  // classificação por histórico: repete a classificação mais recente de
+  // lançamentos com a mesma descrição (fornecedor já classificado antes)
+  const history = await classifyFromHistory(result.rows.map((r) => r.description));
+
   const rows = result.rows.map((r, i) => {
-    const c = classify(r.description);
+    const c = classify(r.description, r.rawType);
+    const h = c.accountId ? null : history.get(r.description) ?? null;
     return {
       ...r,
       hash: hashes[i],
       duplicate: existingSet.has(hashes[i]),
-      accountId: c.accountId,
-      sectorId: c.sectorId,
-      unitId: c.unitId,
+      accountId: c.accountId ?? h?.accountId ?? null,
+      sectorId: c.sectorId ?? h?.sectorId ?? null,
+      unitId: c.unitId ?? h?.unitId ?? null,
+      supplierId: c.supplierId ?? h?.supplierId ?? null,
+      suggestedBy: c.accountId ? c.suggestedBy : h ? "histórico" : null,
     };
   });
 

@@ -17,6 +17,10 @@ export type DreRow = {
   kind: "group" | "account" | "subtotal";
   label: string;
   code?: string;
+  /** id da conta do DRE (linhas de conta) — usado no drill-down */
+  accountId?: string;
+  /** chave do grupo (subtotais de grupo) — usado no drill-down */
+  groupKey?: string;
   /** valores realizados por mês (0-11) em centavos */
   months: number[];
   /** previsão por mês (parcelas futuras + despesas fixas), em centavos */
@@ -181,10 +185,11 @@ export async function computeDre(
     label: string,
     months: number[],
     projected: number[],
-    code?: string
+    code?: string,
+    extra?: { accountId?: string; groupKey?: string }
   ): DreRow => {
     const total = months.reduce((s, v) => s + v, 0) + projected.reduce((s, v) => s + v, 0);
-    return { kind, label, code, months, projected, total, average: Math.round(total / 12) };
+    return { kind, label, code, ...extra, months, projected, total, average: Math.round(total / 12) };
   };
 
   let hasProjections = false;
@@ -199,7 +204,7 @@ export async function computeDre(
       if (projected.some((v) => v !== 0)) hasProjections = true;
       groupSum = add(groupSum, months);
       groupProj = add(groupProj, projected);
-      rows.push(mkRow("account", a.name, months, projected, a.code));
+      rows.push(mkRow("account", a.name, months, projected, a.code, { accountId: a.id }));
     }
     groupSums[g.key] = groupSum;
     running = add(running, groupSum);
@@ -207,7 +212,11 @@ export async function computeDre(
     if (g.subtotal) {
       const values = g.subtotalScope === "group" ? [...groupSum] : [...running];
       const projValues = g.subtotalScope === "group" ? [...groupProj] : [...runningProj];
-      rows.push(mkRow("subtotal", g.subtotal, values, projValues));
+      rows.push(
+        mkRow("subtotal", g.subtotal, values, projValues, undefined, {
+          groupKey: g.subtotalScope === "group" ? g.key : undefined,
+        })
+      );
       totals[g.subtotal] = values;
     }
   }

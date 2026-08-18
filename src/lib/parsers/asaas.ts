@@ -37,12 +37,14 @@ export function parseAsaasCsv(text: string): ParseResult {
       warnings.push(`Linha ignorada: ${r.slice(0, 6).join(", ")}`);
       continue;
     }
-    const desc = r[iDesc]?.trim() || r[iTipo]?.trim() || "Sem descrição";
+    const tipo = r[iTipo]?.trim() || undefined;
+    const desc = r[iDesc]?.trim() || tipo || "Sem descrição";
     rows.push({
       date: date.toISOString().slice(0, 10),
       description: desc,
       amountCents: cents,
       externalId: r[iId]?.trim() || undefined,
+      rawType: tipo,
     });
   }
   return { source: "asaas-csv", sourceLabel: "Asaas (CSV)", rows, warnings };

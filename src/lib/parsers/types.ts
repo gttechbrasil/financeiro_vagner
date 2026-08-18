@@ -6,6 +6,9 @@ export interface ParsedTransaction {
   amountCents: number;
   /** Identificador externo (id da transação no banco de origem), quando houver */
   externalId?: string;
+  /** Tipo de transação do extrato (ex.: "Taxa de boleto", "Antecipação" no
+   *  Asaas) — usado só para classificação automática, não entra no hash */
+  rawType?: string;
   /** Compra parcelada: número da parcela atual (ex.: 6 de 10) */
   installmentNum?: number;
   /** Compra parcelada: total de parcelas */

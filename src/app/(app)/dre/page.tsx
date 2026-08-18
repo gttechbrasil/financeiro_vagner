@@ -11,11 +11,14 @@ function Cell({
   proj = 0,
   bold,
   highlight,
+  href,
 }: {
   value: number;
   proj?: number;
   bold?: boolean;
   highlight?: boolean;
+  /** drill-down: link para os lançamentos que compõem o valor */
+  href?: string;
 }) {
   const total = value + proj;
   const isProj = proj !== 0;
@@ -26,6 +29,7 @@ function Cell({
       : total > 0
         ? "text-slate-800"
         : "text-slate-300";
+  const content = total === 0 ? "–" : formatBRLPlain(total);
   return (
     <td
       className={`px-2 py-1 text-right whitespace-nowrap tabular-nums ${cls} ${bold ? "font-semibold" : ""} ${
@@ -33,7 +37,17 @@ function Cell({
       }`}
       title={isProj ? "Inclui previsão (parcelas futuras / despesas fixas)" : undefined}
     >
-      {total === 0 ? "–" : formatBRLPlain(total)}
+      {href && total !== 0 ? (
+        <Link
+          href={href}
+          className="hover:underline hover:text-blue-700 decoration-dotted underline-offset-2"
+          title="Ver os lançamentos que compõem este valor"
+        >
+          {content}
+        </Link>
+      ) : (
+        content
+      )}
     </td>
   );
 }
@@ -108,8 +122,10 @@ export default async function DrePage({
       {showProjections && dre.hasProjections && (
         <p className="bg-sky-50 border border-sky-200 rounded-xl p-3 text-sm text-sky-800">
           🔮 Valores em <i className="text-sky-600">azul itálico</i> são <b>previsão</b> dos meses
-          futuros: parcelas restantes de compras parceladas + média das despesas marcadas como{" "}
-          <b>fixa mensal</b> (📌 na tela de Transações). Meses já fechados mostram apenas o realizado.
+          futuros: parcelas restantes de compras parceladas (cada uma na categoria da compra) + média
+          dos lançamentos marcados como <b>fixo/recorrente</b> (📌 na tela de Transações — vale para
+          despesas fixas e também para contratos e mensalidades recorrentes). Meses já fechados
+          mostram apenas o realizado.
         </p>
       )}
 
@@ -142,14 +158,23 @@ export default async function DrePage({
                   </tr>
                 );
               }
+              // drill-down: monta o link para os lançamentos da conta/grupo
+              const drill = (m?: number) => {
+                const q = new URLSearchParams({ ano: String(year) });
+                if (m !== undefined) q.set("mes", String(m + 1));
+                if (row.accountId) q.set("conta", row.accountId);
+                else if (row.groupKey) q.set("grupo", row.groupKey);
+                else return undefined;
+                return `/dre/lancamentos?${q.toString()}`;
+              };
               if (row.kind === "subtotal") {
                 return (
                   <tr key={i} className="bg-blue-50 border-y border-blue-100 font-semibold">
                     <td className="px-3 py-1.5 text-blue-900 sticky left-0 bg-blue-50 z-10">{row.label}</td>
                     {row.months.map((v, j) => (
-                      <Cell key={j} value={v} proj={row.projected[j]} bold highlight={month === j + 1} />
+                      <Cell key={j} value={v} proj={row.projected[j]} bold highlight={month === j + 1} href={drill(j)} />
                     ))}
-                    <Cell value={row.total} bold />
+                    <Cell value={row.total} bold href={drill()} />
                     <Cell value={row.average} bold />
                   </tr>
                 );
@@ -158,12 +183,22 @@ export default async function DrePage({
                 <tr key={i} className="border-t border-slate-100 hover:bg-slate-50 group">
                   <td className="px-3 py-1 pl-6 text-slate-600 sticky left-0 bg-white group-hover:bg-slate-50 z-10">
                     <span className="text-slate-400 mr-1.5">{row.code}</span>
-                    {row.label}
+                    {row.accountId ? (
+                      <Link
+                        href={drill() ?? "#"}
+                        className="hover:underline hover:text-blue-700"
+                        title="Ver todos os lançamentos desta conta no ano"
+                      >
+                        {row.label}
+                      </Link>
+                    ) : (
+                      row.label
+                    )}
                   </td>
                   {row.months.map((v, j) => (
-                    <Cell key={j} value={v} proj={row.projected[j]} highlight={month === j + 1} />
+                    <Cell key={j} value={v} proj={row.projected[j]} highlight={month === j + 1} href={drill(j)} />
                   ))}
-                  <Cell value={row.total} />
+                  <Cell value={row.total} href={drill()} />
                   <Cell value={row.average} />
                 </tr>
               );
@@ -172,6 +207,7 @@ export default async function DrePage({
         </table>
       </div>
       <p className="text-xs text-slate-500">
+        💡 Clique em qualquer valor para ver os lançamentos que o compõem — e reclassificar ali mesmo.
         Valores em reais. Receitas positivas, despesas negativas. Subtotais em cascata: Receita
         Líquida, Resultado Bruto, EBITDA, Lucro Operacional e Resultado Líquido do Período.
         {showProjections && " O Total e a Média do ano incluem a previsão dos meses futuros."}

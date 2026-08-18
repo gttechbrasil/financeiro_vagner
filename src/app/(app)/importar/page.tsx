@@ -21,8 +21,16 @@ interface PreviewRow {
   accountId: string | null;
   sectorId: string | null;
   unitId: string | null;
+  supplierId: string | null;
+  suggestedBy: "regra" | "fornecedor" | "histórico" | null;
   selected?: boolean;
 }
+
+const SUGGESTED_BADGE: Record<string, { label: string; cls: string }> = {
+  regra: { label: "⚙️ regra", cls: "bg-blue-100 text-blue-700" },
+  fornecedor: { label: "🏢 fornecedor", cls: "bg-violet-100 text-violet-700" },
+  "histórico": { label: "🕘 histórico", cls: "bg-emerald-100 text-emerald-700" },
+};
 
 interface Batch {
   id: string;
@@ -288,6 +296,14 @@ export default function ImportarPage() {
                     <td className="py-1.5 pr-3 max-w-xs truncate" title={r.description}>
                       {r.description}
                       {r.duplicate && <span className="ml-2 text-xs text-amber-600">(já importado)</span>}
+                      {!r.duplicate && r.suggestedBy && r.accountId && (
+                        <span
+                          className={`ml-2 text-[10px] rounded px-1 py-0.5 whitespace-nowrap ${SUGGESTED_BADGE[r.suggestedBy]?.cls ?? ""}`}
+                          title={`Classificação sugerida automaticamente (${r.suggestedBy})`}
+                        >
+                          {SUGGESTED_BADGE[r.suggestedBy]?.label}
+                        </span>
+                      )}
                     </td>
                     <td className={`py-1.5 pr-3 text-right whitespace-nowrap ${r.amountCents < 0 ? "text-red-600" : "text-green-700"}`}>
                       {formatBRL(r.amountCents)}

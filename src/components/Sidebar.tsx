@@ -2,12 +2,16 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 const NAV = [
   { href: "/", label: "Dashboard", icon: "📊" },
   { href: "/dre", label: "DRE Gerencial", icon: "📑" },
+  { href: "/relatorios", label: "Relatórios", icon: "📈" },
   { href: "/transacoes", label: "Transações", icon: "💳" },
   { href: "/importar", label: "Importar Extratos", icon: "📥" },
+  { href: "/auditoria", label: "Auditoria", icon: "🔍" },
+  { href: "/fornecedores", label: "Fornecedores", icon: "🏢" },
   { href: "/regras", label: "Regras", icon: "⚙️" },
   { href: "/cadastros", label: "Cadastros", icon: "🗂️" },
   { href: "/configuracoes", label: "Configurações", icon: "🔐" },
@@ -16,6 +20,15 @@ const NAV = [
 export default function Sidebar({ userName }: { userName: string }) {
   const pathname = usePathname();
   const router = useRouter();
+  const [pending, setPending] = useState(0);
+
+  // aviso global: lançamentos sem conta do DRE (correção 13)
+  useEffect(() => {
+    fetch("/api/audit")
+      .then((r) => r.json())
+      .then((d) => setPending(d.unclassified ?? 0))
+      .catch(() => {});
+  }, [pathname]);
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -48,7 +61,15 @@ export default function Sidebar({ userName }: { userName: string }) {
               }`}
             >
               <span className="w-5 text-center">{item.icon}</span>
-              {item.label}
+              <span className="flex-1">{item.label}</span>
+              {item.href === "/auditoria" && pending > 0 && (
+                <span
+                  className="text-[10px] font-bold bg-amber-500 text-amber-950 rounded-full px-1.5 py-0.5 min-w-5 text-center"
+                  title={`${pending} lançamentos sem conta do DRE`}
+                >
+                  {pending > 999 ? "999+" : pending}
+                </span>
+              )}
             </Link>
           );
         })}
