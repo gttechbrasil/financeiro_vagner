@@ -39,6 +39,21 @@ export async function POST(req: NextRequest) {
   });
   const existingSet = new Set(existing.map((e) => e.hash));
 
+  // meses (yyyy-mm) em que esta conta já tem lançamentos — o usuário pode
+  // desmarcar esses meses na prévia para não duplicar entradas feitas à mão
+  // (ex.: extrato do Asaas cobrindo meses já lançados manualmente)
+  const dates = result.rows.map((r) => r.date).filter(Boolean).sort();
+  const monthsWithData = new Set<string>();
+  if (dates.length > 0) {
+    const first = new Date(dates[0].slice(0, 7) + "-01T00:00:00Z");
+    const last = new Date(dates[dates.length - 1] + "T00:00:00Z");
+    const existingInPeriod = await prisma.transaction.findMany({
+      where: { bankAccountId, date: { gte: first, lte: last } },
+      select: { date: true },
+    });
+    for (const t of existingInPeriod) monthsWithData.add(t.date.toISOString().slice(0, 7));
+  }
+
   // classificação por histórico: repete a classificação mais recente de
   // lançamentos com a mesma descrição (fornecedor já classificado antes)
   const history = await classifyFromHistory(result.rows.map((r) => r.description));
@@ -63,6 +78,7 @@ export async function POST(req: NextRequest) {
     sourceLabel: result.sourceLabel,
     warnings: result.warnings,
     fileName: file.name,
+    monthsWithData: [...monthsWithData].sort(),
     rows,
   });
 }

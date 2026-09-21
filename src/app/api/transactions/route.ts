@@ -81,6 +81,10 @@ export async function POST(req: NextRequest) {
   if (!b.date || !b.description || typeof b.amountCents !== "number" || !b.bankAccountId) {
     return NextResponse.json({ error: "Campos obrigatórios: data, descrição, valor, conta" }, { status: 400 });
   }
+  const inst = parseInstallmentFields(b);
+  if (inst === null) {
+    return NextResponse.json({ error: "Parcela inválida: informe número e total (ex.: 3 de 10)" }, { status: 400 });
+  }
   const hash = txHash(b.bankAccountId, b.date, b.amountCents, b.description, `manual-${Date.now()}`);
   const tx = await prisma.transaction.create({
     data: {
@@ -91,11 +95,37 @@ export async function POST(req: NextRequest) {
       accountId: b.accountId ?? null,
       sectorId: b.sectorId ?? null,
       unitId: b.unitId ?? null,
+      supplierId: b.supplierId ?? null,
       notes: b.notes ?? null,
+      recurring: !!b.recurring,
+      ...inst,
       hash,
     },
   });
   return NextResponse.json(tx);
+}
+
+/**
+ * Lê installmentNum/installmentTotal do corpo. Retorna {} se não informados,
+ * null se inválidos, ou os dois campos (ambos null limpa o parcelamento —
+ * vale para qualquer origem: cartão, Asaas ou lançamento manual).
+ */
+function parseInstallmentFields(b: Record<string, unknown>):
+  | { installmentNum: number | null; installmentTotal: number | null }
+  | Record<string, never>
+  | null {
+  if (!("installmentNum" in b) && !("installmentTotal" in b)) return {};
+  const num = b.installmentNum == null || b.installmentNum === "" ? null : Number(b.installmentNum);
+  const total = b.installmentTotal == null || b.installmentTotal === "" ? null : Number(b.installmentTotal);
+  if (num === null && total === null) return { installmentNum: null, installmentTotal: null };
+  if (
+    num === null || total === null ||
+    !Number.isInteger(num) || !Number.isInteger(total) ||
+    total < 2 || num < 1 || num > total
+  ) {
+    return null;
+  }
+  return { installmentNum: num, installmentTotal: total };
 }
 
 /** Atualização em lote (classificação) ou individual.
@@ -117,6 +147,11 @@ export async function PATCH(req: NextRequest) {
     if ("description" in b) data.description = b.description;
     if ("amountCents" in b) data.amountCents = b.amountCents;
     if ("date" in b) data.date = new Date(b.date + "T00:00:00Z");
+    const inst = parseInstallmentFields(b);
+    if (inst === null) {
+      return NextResponse.json({ error: "Parcela inválida: informe número e total (ex.: 3 de 10)" }, { status: 400 });
+    }
+    Object.assign(data, inst);
   }
   if (Object.keys(data).length === 0) {
     return NextResponse.json({ error: "Nada para atualizar" }, { status: 400 });

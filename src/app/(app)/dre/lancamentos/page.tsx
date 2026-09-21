@@ -77,8 +77,11 @@ function Content() {
     unitId: "",
     supplierId: "",
     notes: "",
+    installmentNum: "",
+    installmentTotal: "",
   });
   const [saving, setSaving] = useState(false);
+  const [editError, setEditError] = useState("");
 
   useEffect(() => {
     fetch("/api/meta").then((r) => r.json()).then(setMeta);
@@ -119,7 +122,10 @@ function Content() {
       unitId: t.unitId ?? "",
       supplierId: t.supplierId ?? "",
       notes: t.notes ?? "",
+      installmentNum: t.installmentNum != null ? String(t.installmentNum) : "",
+      installmentTotal: t.installmentTotal != null ? String(t.installmentTotal) : "",
     });
+    setEditError("");
   }
 
   async function saveEdit() {
@@ -127,7 +133,8 @@ function Content() {
     const cents = Math.round(Number(editForm.amount.replace(",", ".")) * 100);
     if (!editForm.date || !editForm.description || Number.isNaN(cents)) return;
     setSaving(true);
-    await fetch("/api/transactions", {
+    setEditError("");
+    const res = await fetch("/api/transactions", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -140,9 +147,16 @@ function Content() {
         unitId: editForm.unitId || null,
         supplierId: editForm.supplierId || null,
         notes: editForm.notes || null,
+        installmentNum: editForm.installmentNum ? Number(editForm.installmentNum) : null,
+        installmentTotal: editForm.installmentTotal ? Number(editForm.installmentTotal) : null,
       }),
     });
     setSaving(false);
+    if (!res.ok) {
+      const d = await res.json();
+      setEditError(d.error ?? "Erro ao salvar");
+      return;
+    }
     setEdit(null);
     load();
   }
@@ -370,6 +384,39 @@ function Content() {
                 </select>
               </div>
               <div className="col-span-2">
+                <label className="block text-xs text-slate-500 mb-1">
+                  Parcela (compra parcelada: as parcelas restantes entram na previsão do DRE e na agenda semanal)
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={1}
+                    className="w-20 border border-slate-300 rounded-lg px-2 py-1.5 text-right"
+                    placeholder="nº"
+                    value={editForm.installmentNum}
+                    onChange={(e) => setEditForm({ ...editForm, installmentNum: e.target.value })}
+                  />
+                  <span className="text-slate-500">de</span>
+                  <input
+                    type="number"
+                    min={2}
+                    className="w-20 border border-slate-300 rounded-lg px-2 py-1.5 text-right"
+                    placeholder="total"
+                    value={editForm.installmentTotal}
+                    onChange={(e) => setEditForm({ ...editForm, installmentTotal: e.target.value })}
+                  />
+                  {(editForm.installmentNum || editForm.installmentTotal) && (
+                    <button
+                      type="button"
+                      onClick={() => setEditForm({ ...editForm, installmentNum: "", installmentTotal: "" })}
+                      className="text-xs text-slate-500 hover:underline"
+                    >
+                      não é parcelado
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="col-span-2">
                 <label className="block text-xs text-slate-500 mb-1">Observações</label>
                 <textarea
                   className="w-full border border-slate-300 rounded-lg px-2 py-1.5"
@@ -379,6 +426,7 @@ function Content() {
                 />
               </div>
             </div>
+            {editError && <p className="text-sm text-red-600">{editError}</p>}
             <div className="flex items-center justify-between border-t border-slate-100 pt-3">
               <span className="text-xs text-slate-500">
                 {edit.bankAccount.name}

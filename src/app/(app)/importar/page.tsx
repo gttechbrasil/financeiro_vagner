@@ -51,8 +51,12 @@ export default function ImportarPage() {
     sourceLabel: string;
     fileName: string;
     warnings: string[];
+    /** meses (yyyy-mm) em que a conta de origem já tem lançamentos */
+    monthsWithData: string[];
     rows: PreviewRow[];
   } | null>(null);
+  // período a importar (recorte do arquivo): evita duplicar meses já lançados
+  const [range, setRange] = useState({ from: "", to: "" });
   const [batches, setBatches] = useState<Batch[]>([]);
   const [result, setResult] = useState<{ imported: number; skipped: number; batchId: string | null } | null>(null);
 
@@ -88,8 +92,36 @@ export default function ImportarPage() {
       return;
     }
     data.rows = data.rows.map((r: PreviewRow) => ({ ...r, selected: !r.duplicate }));
+    data.monthsWithData = data.monthsWithData ?? [];
+    setRange({ from: "", to: "" });
     setPreview(data);
   }
+
+  /** Seleciona só as linhas (não duplicadas) dentro do período informado. */
+  function applyRange(from: string, to: string) {
+    if (!preview) return;
+    setRange({ from, to });
+    setPreview({
+      ...preview,
+      rows: preview.rows.map((r) => ({
+        ...r,
+        selected: !r.duplicate && (!from || r.date >= from) && (!to || r.date <= to),
+      })),
+    });
+  }
+
+  /** Desmarca as linhas que caem em meses onde a conta já tem lançamentos. */
+  function unselectMonthsWithData() {
+    if (!preview) return;
+    const months = new Set(preview.monthsWithData);
+    setPreview({
+      ...preview,
+      rows: preview.rows.map((r) => (months.has(r.date.slice(0, 7)) ? { ...r, selected: false } : r)),
+    });
+  }
+
+  const fmtMonth = (ym: string) =>
+    new Date(ym + "-01T00:00:00Z").toLocaleDateString("pt-BR", { month: "short", year: "numeric", timeZone: "UTC" });
 
   function updateRow(i: number, patch: Partial<PreviewRow>) {
     if (!preview) return;
@@ -252,7 +284,48 @@ export default function ImportarPage() {
             </div>
           )}
 
-          <div className="flex justify-end">
+          {preview.monthsWithData.length > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800 flex flex-wrap items-center justify-between gap-2">
+              <p>
+                ⚠️ Esta conta já tem lançamentos em{" "}
+                <b>{preview.monthsWithData.map(fmtMonth).join(", ")}</b>. Se esses meses foram lançados
+                à mão, importar o arquivo inteiro vai duplicá-los.
+              </p>
+              <button
+                onClick={unselectMonthsWithData}
+                className="text-sm border border-amber-400 bg-white rounded-lg px-3 py-1.5 hover:bg-amber-100 font-medium whitespace-nowrap"
+              >
+                Desmarcar esses meses
+              </button>
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div className="flex flex-wrap items-end gap-2 text-sm">
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide self-center">
+                Importar só o período
+              </span>
+              <input
+                type="date"
+                className="border border-slate-300 rounded-lg px-2 py-1.5"
+                value={range.from}
+                onChange={(e) => applyRange(e.target.value, range.to)}
+                title="A partir de (inclusive)"
+              />
+              <span className="text-slate-400 self-center">até</span>
+              <input
+                type="date"
+                className="border border-slate-300 rounded-lg px-2 py-1.5"
+                value={range.to}
+                onChange={(e) => applyRange(range.from, e.target.value)}
+                title="Até (inclusive)"
+              />
+              {(range.from || range.to) && (
+                <button onClick={() => applyRange("", "")} className="text-xs text-blue-600 hover:underline self-center">
+                  ✕ Limpar
+                </button>
+              )}
+            </div>
             <QuickAdd onCreated={loadMeta} />
           </div>
 

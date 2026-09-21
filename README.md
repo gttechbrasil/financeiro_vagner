@@ -32,6 +32,17 @@ npm run build && npm start
 - **Dashboard** — KPIs do ano (Receita, Receita Líquida, EBITDA e margem, Resultado
   Líquido, % Marketing, % Equipe Jurídica, Resultado Financeiro, Deduções/Inadimplência),
   gráfico Receita × Despesas por mês e receita por tipo de serviço.
+- **Contas a Pagar/Receber (agenda semanal)** — no Dashboard, tabelinha das próximas 4
+  semanas (a receber / a pagar / saldo) e os vencimentos da semana atual; na tela
+  **Contas a Pagar/Receber**, o relatório semanal completo (navegação por semana, 2 a 12
+  semanas, botões **Copiar resumo** para WhatsApp/e-mail e **Imprimir/PDF**). As
+  ocorrências vêm de três fontes, cada uma na semana do seu vencimento:
+  (a) **fixas 📌** — repete o valor e o dia do último lançamento marcado como fixo
+  ("todo dia 18"); (b) **parcelas** — parcelas restantes de compras parceladas de qualquer
+  origem (cartão, Asaas, manual; o nº da parcela pode ser ajustado no lançamento);
+  (c) **previstos** — cadastro próprio para o que ainda não aparece nos extratos (aluguel
+  dia 18, parcela de cliente dia 10 × 12...). Quando já existe lançamento correspondente no
+  mês, a ocorrência aparece como *realizada* e sai dos totais.
 - **DRE Gerencial** — contas × 12 meses + Total + Média, com os grupos 1–8 do modelo e
   subtotais em cascata (Receita Líquida, Resultado Bruto, EBITDA, Resultado Financeiro
   Líquido, Lucro Operacional, Resultado Líquido do Período).
@@ -40,7 +51,10 @@ npm run build && npm start
   classificadas.
 - **Importar Extratos** — upload → análise → prévia com classificação automática →
   confirmação. Duplicados são detectados e pulados (pode reimportar o mesmo arquivo sem
-  medo). Importações podem ser desfeitas ("Desfazer" no histórico de lotes).
+  medo). Importações podem ser desfeitas ("Desfazer" no histórico de lotes). Na prévia,
+  o sistema avisa se a conta já tem lançamentos em meses cobertos pelo arquivo (ex.:
+  meses lançados à mão) e permite **desmarcar esses meses** ou **importar só um
+  período** (de/até), evitando duplicar o que já foi lançado manualmente.
 - **Regras** — "se a descrição contém X → conta Y (+ setor/unidade)". Aplicadas na
   importação. Já vem com ~28 regras (taxas Asaas, IOF, Google Ads, sistemas jurídicos...).
 - **Previsão no DRE** — meses futuros mostram projeção (em azul itálico) composta por:

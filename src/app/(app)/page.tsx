@@ -4,6 +4,8 @@ import { getAvailableYears } from "@/lib/years";
 import { formatBRL, MONTHS_PT } from "@/lib/money";
 import PeriodFilter from "@/components/PeriodFilter";
 import { ReceitaDespesaChart, ReceitaPorTipoChart } from "@/components/DashboardCharts";
+import { WeekSummaryTable, WeekItemsTable } from "@/components/ForecastWeeks";
+import { computeForecast, defaultRange, iso, todayUTC } from "@/lib/forecast";
 
 export const dynamic = "force-dynamic";
 
@@ -57,7 +59,14 @@ export default async function DashboardPage({
   const params = await searchParams;
   const year = Number(params.ano) || new Date().getFullYear();
   const month = Math.min(12, Math.max(0, Number(params.mes) || 0)); // 0 = ano todo
-  const [dre, years] = await Promise.all([computeDre(year), getAvailableYears()]);
+  const range = defaultRange(4);
+  const [dre, years, forecast] = await Promise.all([
+    computeDre(year),
+    getAvailableYears(),
+    computeForecast(range.from, range.to),
+  ]);
+  const today = iso(todayUTC());
+  const currentWeek = forecast.weeks.find((w) => today >= w.start && today <= w.end) ?? forecast.weeks[0];
 
   const zero = new Array(12).fill(0);
   const pick = (arr?: number[]) => {
@@ -99,6 +108,41 @@ export default async function DashboardPage({
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-sm text-slate-500">Visão executiva · {periodo}</p>
+        </div>
+      </div>
+
+      <div className="grid lg:grid-cols-5 gap-4">
+        <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 lg:col-span-2">
+          <div className="flex items-baseline justify-between mb-3 gap-2">
+            <h2 className="font-semibold">📅 Contas a pagar e receber</h2>
+            <span className="text-xs text-slate-500">próximas 4 semanas</span>
+          </div>
+          <WeekSummaryTable
+            weeks={forecast.weeks}
+            today={today}
+            hrefFor={(w) => `/agenda?inicio=${w.start}`}
+          />
+          <p className="text-xs text-slate-500 mt-3">
+            Fixas 📌, parcelas restantes e previstos cadastrados, na semana do vencimento. Só o que
+            ainda não foi lançado entra nos totais.{" "}
+            <Link href="/agenda" className="text-blue-600 hover:underline font-medium">Ver relatório semanal →</Link>
+          </p>
+        </div>
+        <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 lg:col-span-3">
+          <div className="flex items-baseline justify-between mb-3 gap-2">
+            <h2 className="font-semibold">Esta semana · {currentWeek?.label}</h2>
+            <span className="text-xs text-slate-500">
+              {currentWeek && (
+                <>
+                  a receber <b className="text-emerald-700">{formatBRL(currentWeek.receberCents)}</b> · a pagar{" "}
+                  <b className="text-red-600">{formatBRL(currentWeek.pagarCents)}</b>
+                </>
+              )}
+            </span>
+          </div>
+          <div className="max-h-80 overflow-y-auto">
+            <WeekItemsTable items={currentWeek?.items ?? []} today={today} compact />
+          </div>
         </div>
       </div>
 

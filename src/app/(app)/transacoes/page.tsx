@@ -76,6 +76,43 @@ export default function TransacoesPage() {
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [detailTx, setDetailTx] = useState<Tx | null>(null);
+  // edição rápida da parcela no modal de detalhe (vale para qualquer origem)
+  const [inst, setInst] = useState({ num: "", total: "" });
+  const [instError, setInstError] = useState("");
+
+  function openDetail(t: Tx) {
+    setDetailTx(t);
+    setInst({
+      num: t.installmentNum != null ? String(t.installmentNum) : "",
+      total: t.installmentTotal != null ? String(t.installmentTotal) : "",
+    });
+    setInstError("");
+  }
+
+  async function saveInstallment() {
+    if (!detailTx) return;
+    setInstError("");
+    const res = await fetch("/api/transactions", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ids: [detailTx.id],
+        installmentNum: inst.num ? Number(inst.num) : null,
+        installmentTotal: inst.total ? Number(inst.total) : null,
+      }),
+    });
+    if (!res.ok) {
+      const d = await res.json();
+      setInstError(d.error ?? "Erro ao salvar");
+      return;
+    }
+    setDetailTx({
+      ...detailTx,
+      installmentNum: inst.num ? Number(inst.num) : null,
+      installmentTotal: inst.total ? Number(inst.total) : null,
+    });
+    load();
+  }
 
   const loadMeta = useCallback(() => {
     fetch("/api/meta").then((r) => r.json()).then(setMeta);
@@ -406,7 +443,7 @@ export default function TransacoesPage() {
                     </td>
                     <td className="py-1.5 pr-3 max-w-sm truncate">
                       <button
-                        onClick={() => setDetailTx(t)}
+                        onClick={() => openDetail(t)}
                         className="hover:underline hover:text-blue-700 text-left truncate max-w-full"
                         title={`${t.description} — clique para ver a origem`}
                       >
@@ -499,12 +536,40 @@ export default function TransacoesPage() {
                 <span className="text-slate-500">Origem</span>
                 <span>{detailTx.bankAccount.name}</span>
               </p>
-              {detailTx.installmentNum != null && detailTx.installmentTotal != null && (
-                <p className="flex justify-between gap-3">
-                  <span className="text-slate-500">Parcela</span>
-                  <span>{detailTx.installmentNum} de {detailTx.installmentTotal}</span>
-                </p>
-              )}
+              <div className="flex justify-between gap-3 items-center">
+                <span className="text-slate-500" title="Compra parcelada: as parcelas restantes entram na previsão do DRE e na agenda de contas a pagar">
+                  Parcela
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <input
+                    type="number"
+                    min={1}
+                    className="w-14 border border-slate-300 rounded px-1.5 py-0.5 text-right text-sm"
+                    placeholder="nº"
+                    value={inst.num}
+                    onChange={(e) => setInst({ ...inst, num: e.target.value })}
+                  />
+                  <span className="text-slate-500">de</span>
+                  <input
+                    type="number"
+                    min={2}
+                    className="w-14 border border-slate-300 rounded px-1.5 py-0.5 text-right text-sm"
+                    placeholder="total"
+                    value={inst.total}
+                    onChange={(e) => setInst({ ...inst, total: e.target.value })}
+                  />
+                  {(inst.num !== (detailTx.installmentNum != null ? String(detailTx.installmentNum) : "") ||
+                    inst.total !== (detailTx.installmentTotal != null ? String(detailTx.installmentTotal) : "")) && (
+                    <button
+                      onClick={saveInstallment}
+                      className="text-xs bg-blue-600 text-white rounded px-2 py-1 font-medium hover:bg-blue-700"
+                    >
+                      Salvar
+                    </button>
+                  )}
+                </span>
+              </div>
+              {instError && <p className="text-xs text-red-600 text-right">{instError}</p>}
               <p className="flex justify-between gap-3">
                 <span className="text-slate-500">Conta DRE</span>
                 <span>{detailTx.account ? `${detailTx.account.code} ${detailTx.account.name}` : "— não classificada —"}</span>

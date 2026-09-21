@@ -27,6 +27,7 @@ model DreAccount {
   transactions Transaction[]
   rules        Rule[]
   suppliers    Supplier[]
+  commitments  Commitment[]
 }
 
 model Sector {
@@ -60,6 +61,7 @@ model Supplier {
   defaultUnitId    String?
   active           Boolean       @default(true)
   transactions     Transaction[]
+  commitments      Commitment[]
 }
 
 // kind: ASAAS | CONTA_CORRENTE | CARTAO_CREDITO
@@ -69,6 +71,7 @@ model BankAccount {
   kind         String        @default("CONTA_CORRENTE")
   active       Boolean       @default(true)
   transactions Transaction[]
+  commitments  Commitment[]
 }
 
 model ImportBatch {
@@ -130,4 +133,33 @@ model Rule {
   unitId    String?
   priority  Int         @default(0)
   active    Boolean     @default(true)
+}
+
+// Compromisso previsto (contas a pagar/receber futuras) — alimenta a agenda
+// semanal do Dashboard e da tela "Contas a Pagar/Receber":
+// - despesa fixa com dia de vencimento (installments = null → todo mês, sem fim)
+// - parcelamento ou recebimento previsto de cliente (installments = N parcelas,
+//   contadas a partir do mês de startDate)
+// amountCents com sinal: a receber positivo, a pagar negativo.
+// pattern/supplier: usados para reconhecer o lançamento real no extrato e
+// marcar a ocorrência do mês como realizada.
+model Commitment {
+  id            String       @id @default(cuid())
+  description   String
+  amountCents   Int
+  // dia do mês do vencimento (1-31; em meses mais curtos vale o último dia)
+  dueDay        Int
+  // mês/ano da primeira ocorrência (sempre dia 1)
+  startDate     DateTime
+  installments  Int?
+  pattern       String?
+  bankAccount   BankAccount? @relation(fields: [bankAccountId], references: [id])
+  bankAccountId String?
+  account       DreAccount?  @relation(fields: [accountId], references: [id])
+  accountId     String?
+  supplier      Supplier?    @relation(fields: [supplierId], references: [id])
+  supplierId    String?
+  active        Boolean      @default(true)
+  notes         String?
+  createdAt     DateTime     @default(now())
 }
